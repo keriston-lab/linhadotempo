@@ -281,7 +281,7 @@
                     id: 'p_arcaico', title: 'Período Arcaico Grego', date: 'c. 800 a.C. — 480 a.C.', color: '#b45309',
                     desc: 'Nascimento das Polis (cidades-estado). Aqui, os mitos deixam de ser apenas narrativas rituais e passam a ser fixados em obras que tentam organizar a estrutura cósmica e a hierarquia do poder.',
                     events: [
-                        { id: 'e_olimp', name: 'Primeiros Jogos Olímpicos', date: '776 a.C.', desc: 'Unificou culturalmente os povos gregos, transformando a violência guerreira em espetáculo ritualizado sob a chancela do poder.' }
+                        { id: 'e_olimp', name: 'Primeiros Jogos Olímpicos', date: '776 a.C.', desc: 'Unificou culturalmente os povos gregos, transformando a violência guerreira em espetáculo ritualizado sob a chancelaba do poder.' }
                     ],
                     works: [
                         { id: 'w_homero', name: 'Ilíada e Odisseia (Homero)', date: 'c. 750 a.C.', desc: 'Sob o verniz das batalhas, esconde-se a primeira anatomia da fragilidade humana frente às narrativas e forças institucionais.' },
@@ -329,23 +329,23 @@
 
     // --- ESTADO DA APLICAÇÃO ---
     let timelines = JSON.parse(localStorage.getItem('antiqTimelineData')) || defaultData;
-    let currentModalContext = {}; // Guarda onde o novo item será inserido
+    let currentModalContext = {}; 
 
     // --- FUNÇÕES PRINCIPAIS DE RENDERIZAÇÃO ---
     function render() {
         const container = document.getElementById('app-container');
-        container.innerHTML = ''; // Limpa tudo
+        container.innerHTML = ''; 
 
         timelines.forEach(tl => {
             let col = document.createElement('div');
             col.className = 'column-wrapper';
             
-            // Header da Coluna
             col.innerHTML = `
                 <div class="column-header">
                     <h2 class="column-title">${tl.title}</h2>
                     <div>
                         <button class="btn-add" onclick="openModal('period', '${tl.id}')">+ Período</button>
+                        <button class="btn-delete" title="Editar Nome da Coluna" onclick="openModal('timeline', '${tl.id}', null, null, true)">✏️</button>
                         <button class="btn-delete" title="Excluir Coluna" onclick="deleteItem('timeline', '${tl.id}')">🗑️</button>
                     </div>
                 </div>
@@ -355,7 +355,6 @@
 
             const periodsContainer = col.querySelector(`#periods-${tl.id}`);
 
-            // Renderizar Períodos
             tl.periods.forEach(per => {
                 let pBlock = document.createElement('div');
                 pBlock.className = 'period-block';
@@ -366,7 +365,10 @@
                             <span class="period-date">${per.date}</span>
                             <svg class="icon-arrow" width="16" height="16" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
                         </div>
-                        <button class="btn-delete" style="color:white" onclick="deleteItem('period', '${tl.id}', '${per.id}')">🗑️</button>
+                        <div>
+                            <button class="btn-delete" style="color:white; margin-right: 4px;" title="Editar Período" onclick="openModal('period', '${tl.id}', '${per.id}', null, true)">✏️</button>
+                            <button class="btn-delete" style="color:white" title="Excluir Período" onclick="deleteItem('period', '${tl.id}', '${per.id}')">🗑️</button>
+                        </div>
                     </div>
                     <div class="accordion-wrapper">
                         <div class="accordion-content">
@@ -394,11 +396,9 @@
                 `;
                 periodsContainer.appendChild(pBlock);
 
-                // Renderizar Eventos
                 const evContainer = pBlock.querySelector(`#events-${per.id}`);
                 per.events.forEach(ev => { evContainer.appendChild(createItemHTML(ev, tl.id, per.id, 'event')); });
 
-                // Renderizar Obras
                 const wkContainer = pBlock.querySelector(`#works-${per.id}`);
                 per.works.forEach(wk => { wkContainer.appendChild(createItemHTML(wk, tl.id, per.id, 'work')); });
             });
@@ -415,7 +415,10 @@
                     <span class="event-date-badge">${item.date}</span>
                     ${item.desc ? '<svg class="icon-arrow" width="14" height="14" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>' : ''}
                 </div>
-                <button class="btn-delete" onclick="deleteItem('${type}', '${tlId}', '${perId}', '${item.id}')">🗑️</button>
+                <div style="display: flex; align-items: center;">
+                    <button class="btn-delete" style="margin-right: 4px;" title="Editar" onclick="openModal('${type}', '${tlId}', '${perId}', '${item.id}', true)">✏️</button>
+                    <button class="btn-delete" title="Excluir" onclick="deleteItem('${type}', '${tlId}', '${perId}', '${item.id}')">🗑️</button>
+                </div>
             </div>
             ${item.desc ? `
             <div class="accordion-wrapper">
@@ -458,21 +461,52 @@
         saveData();
     }
 
-    function openModal(type, tlId = null, perId = null) {
-        currentModalContext = { type, tlId, perId };
+    function openModal(type, tlId = null, perId = null, itemId = null, isEdit = false) {
+        currentModalContext = { type, tlId, perId, itemId, isEdit };
         
-        // Reseta os campos
-        document.getElementById('input-title').value = '';
-        document.getElementById('input-date').value = '';
-        document.getElementById('input-desc').value = '';
-        document.getElementById('input-color').value = '#1d4ed8';
+        let titleVal = '';
+        let dateVal = '';
+        let descVal = '';
+        let colorVal = '#1d4ed8';
 
-        // Configura a visibilidade dos campos dependendo do que está sendo criado
+        // Se for edição, recupera os dados existentes para preencher os campos do formulário
+        if (isEdit) {
+            if (type === 'timeline') {
+                let tl = timelines.find(t => t.id === tlId);
+                titleVal = tl.title;
+            } else if (type === 'period') {
+                let tl = timelines.find(t => t.id === tlId);
+                let per = tl.periods.find(p => p.id === perId);
+                titleVal = per.title;
+                dateVal = per.date;
+                descVal = per.desc;
+                colorVal = per.color;
+            } else if (type === 'event' || type === 'work') {
+                let tl = timelines.find(t => t.id === tlId);
+                let per = tl.periods.find(p => p.id === perId);
+                let item = type === 'event' ? per.events.find(e => e.id === itemId) : per.works.find(w => w.id === itemId);
+                titleVal = item.name;
+                dateVal = item.date;
+                descVal = item.desc;
+            }
+        }
+
+        document.getElementById('input-title').value = titleVal;
+        document.getElementById('input-date').value = dateVal;
+        document.getElementById('input-desc').value = descVal;
+        document.getElementById('input-color').value = colorVal;
+
+        // Ajusta exibição dos campos baseando-se no tipo de bloco
         document.getElementById('group-date').style.display = type === 'timeline' ? 'none' : 'block';
         document.getElementById('group-desc').style.display = type === 'timeline' ? 'none' : 'block';
         document.getElementById('group-color').style.display = type === 'period' ? 'block' : 'none';
 
-        let titles = { 'timeline': 'Nova Coluna', 'period': 'Novo Período', 'event': 'Novo Evento', 'work': 'Nova Obra/Texto' };
+        let titles = { 
+            'timeline': isEdit ? 'Editar Coluna' : 'Nova Coluna', 
+            'period': isEdit ? 'Editar Período' : 'Novo Período', 
+            'event': isEdit ? 'Editar Evento' : 'Novo Evento', 
+            'work': isEdit ? 'Editar Obra/Texto' : 'Nova Obra/Texto' 
+        };
         document.getElementById('modal-title').innerText = titles[type];
 
         document.getElementById('modal').classList.add('active');
@@ -490,18 +524,40 @@
 
         if (!title) return alert('O título/nome é obrigatório!');
 
-        let { type, tlId, perId } = currentModalContext;
+        let { type, tlId, perId, itemId, isEdit } = currentModalContext;
 
-        if (type === 'timeline') {
-            timelines.push({ id: generateId(), title: title, periods: [] });
-        } else if (type === 'period') {
-            let tl = timelines.find(t => t.id === tlId);
-            tl.periods.push({ id: generateId(), title, date, desc, color, events: [], works: [] });
-        } else if (type === 'event' || type === 'work') {
-            let per = timelines.find(t => t.id === tlId).periods.find(p => p.id === perId);
-            let newItem = { id: generateId(), name: title, date, desc };
-            if (type === 'event') per.events.push(newItem);
-            else per.works.push(newItem);
+        if (isEdit) {
+            // Caminho de modificação (Salvar edições)
+            if (type === 'timeline') {
+                let tl = timelines.find(t => t.id === tlId);
+                tl.title = title;
+            } else if (type === 'period') {
+                let tl = timelines.find(t => t.id === tlId);
+                let per = tl.periods.find(p => p.id === perId);
+                per.title = title;
+                per.date = date;
+                per.desc = desc;
+                per.color = color;
+            } else if (type === 'event' || type === 'work') {
+                let per = timelines.find(t => t.id === tlId).periods.find(p => p.id === perId);
+                let item = type === 'event' ? per.events.find(e => e.id === itemId) : per.works.find(w => w.id === itemId);
+                item.name = title;
+                item.date = date;
+                item.desc = desc;
+            }
+        } else {
+            // Caminho de criação (Adicionar novos)
+            if (type === 'timeline') {
+                timelines.push({ id: generateId(), title: title, periods: [] });
+            } else if (type === 'period') {
+                let tl = timelines.find(t => t.id === tlId);
+                tl.periods.push({ id: generateId(), title, date, desc, color, events: [], works: [] });
+            } else if (type === 'event' || type === 'work') {
+                let per = timelines.find(t => t.id === tlId).periods.find(p => p.id === perId);
+                let newItem = { id: generateId(), name: title, date, desc };
+                if (type === 'event') per.events.push(newItem);
+                else per.works.push(newItem);
+            }
         }
 
         closeModal();
