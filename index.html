@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linha do Tempo Crítica da Antiguidade</title>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: #111827;
+            --text-main: #e5e7eb;
+            --text-muted: #9ca3af;
+            --border-color: #1f2937;
+            --action-color: #3b82f6;
+            --danger-color: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        /* Layout Duas/Múltiplas Colunas */
+        .timeline-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 40px;
+            align-items: start;
+        }
+
+        .column-wrapper {
+            background: rgba(17, 24, 39, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px dashed transparent;
+        }
+
+        .column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 15px;
+        }
+
+        .column-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        /* Botões de Ação Dinâmica */
+        .btn-add {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--action-color);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-add:hover { background: rgba(59, 130, 246, 0.2); }
+
+        .btn-add-timeline {
+            display: block;
+            margin: 40px auto 0;
+            padding: 12px 24px;
+            font-size: 1rem;
+        }
+
+        .btn-delete {
+            background: transparent;
+            color: var(--text-muted);
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            opacity: 0.5;
+        }
+        .btn-delete:hover {
+            color: var(--danger-color);
+            background: rgba(239, 68, 68, 0.1);
+            opacity: 1;
+        }
+
+        /* Blocos de Período */
+        .period-block {
+            margin-bottom: 20px;
+            border-radius: 6px;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        .period-header {
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            position: relative;
+        }
+
+        .period-header-click {
+            flex-grow: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .period-title { font-weight: 600; font-size: 1.1rem; color: #ffffff; }
+        .period-date {
+            font-size: 0.85rem; background: rgba(0,0,0,0.25);
+            padding: 4px 10px; border-radius: 4px; color: rgba(255,255,255,0.9);
+        }
+
+        /* Sistema de Accordion */
+        .accordion-wrapper {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.3s ease;
+        }
+        .period-block.open > .accordion-wrapper, .event-item.open > .accordion-wrapper { grid-template-rows: 1fr; }
+        .accordion-content { overflow: hidden; }
+        .period-inner-content { padding: 20px; border-top: 1px solid var(--border-color); }
+        .period-text { color: var(--text-main); margin-bottom: 20px; font-size: 0.95rem; }
+
+        /* Layout Interno: Eventos e Obras */
+        .split-content { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .split-col-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;}
+        .split-col h4 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
+
+        /* Itens de Eventos/Obras */
+        .event-item { margin-bottom: 8px; }
+        .event-trigger-container {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 6px 10px; border-radius: 4px; transition: background 0.2s;
+        }
+        .event-trigger-container:hover { background-color: rgba(255,255,255,0.05); }
+        .event-trigger { flex-grow: 1; cursor: pointer; display: flex; align-items: center; flex-wrap: wrap; user-select: none; }
+        .event-trigger:before { content: "•"; color: var(--text-muted); margin-right: 8px; font-size: 1.2rem; line-height: 1; }
+        .event-name { font-size: 0.9rem; font-weight: 500; }
+        .event-date-badge {
+            font-size: 0.75rem; color: var(--text-muted); background: rgba(255,255,255,0.05);
+            padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-weight: 400;
+        }
+        .event-desc {
+            padding: 10px 10px 10px 24px; font-size: 0.85rem; color: var(--text-muted);
+            border-left: 2px solid var(--border-color); margin-left: 14px; margin-top: 4px; margin-bottom: 8px;
+        }
+
+        .icon-arrow { fill: currentColor; opacity: 0.6; transition: transform 0.3s ease; margin-left: 10px; }
+        .period-block.open > .period-header .icon-arrow, .event-item.open > .accordion-wrapper { transform: rotate(180deg); }
+        .event-item.open .icon-arrow { transform: rotate(180deg); }
+
+        /* Modal / Pop-up de Criação */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-content {
+            background: var(--card-bg); width: 100%; max-width: 500px;
+            padding: 30px; border-radius: 8px; border: 1px solid var(--border-color);
+        }
+        .modal-content h3 { margin-bottom: 20px; color: #fff; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 5px; }
+        .input-group input[type="text"], .input-group textarea {
+            width: 100%; padding: 10px; border-radius: 4px; border: 1px solid var(--border-color);
+            background: #1f2937; color: #fff; font-family: inherit;
+        }
+        .input-group textarea { min-height: 100px; resize: vertical; }
+        .input-group input[type="color"] {
+            width: 100%; height: 40px; padding: 2px; border: 1px solid var(--border-color);
+            background: #1f2937; border-radius: 4px; cursor: pointer;
+        }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .btn-save { background: var(--action-color); color: #fff; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
+        .btn-cancel { background: transparent; color: #fff; border: 1px solid var(--border-color); padding: 10px 20px; border-radius: 4px; cursor: pointer; }
+
+        @media (max-width: 900px) { .timeline-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 600px) { .split-content { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Linha do Tempo Crítica da Antiguidade</h1>
+        <p>Uma investigação visual sobre Percepção, Estruturas de Poder e a Desconstrução de Discursos Narrativos.</p>
+    </header>
+
+    <div id="app-container" class="timeline-grid">
+        </div>
+
+    <button class="btn-add btn-add-timeline" onclick="openModal('timeline')">+ Adicionar Nova Coluna / Linha do Tempo</button>
+</div>
+
+<div class="modal-overlay" id="modal">
+    <div class="modal-content">
+        <h3 id="modal-title">Adicionar Item</h3>
+        
+        <div class="input-group" id="group-title">
+            <label>Título / Nome</label>
+            <input type="text" id="input-title" placeholder="Ex: Grécia, Período Clássico, Édipo Rei...">
+        </div>
+        
+        <div class="input-group" id="group-date" style="display:none;">
+            <label>Data / Período</label>
+            <input type="text" id="input-date" placeholder="Ex: 480 a.C. — 323 a.C.">
+        </div>
+        
+        <div class="input-group" id="group-color" style="display:none;">
+            <label>Cor de Fundo do Bloco</label>
+            <input type="color" id="input-color" value="#1d4ed8">
+        </div>
+
+        <div class="input-group" id="group-desc" style="display:none;">
+            <label>Texto Descritivo</label>
+            <textarea id="input-desc" placeholder="Sua análise crítica..."></textarea>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+            <button class="btn-save" onclick="saveItem()">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- DADOS INICIAIS (Se não houver nada salvo no LocalStorage) ---
+    const defaultData = [
+        {
+            id: 't_grecia', title: 'Grécia',
+            periods: [
+                {
+                    id: 'p_trevas', title: 'Idade das Trevas Grega', date: 'c. 1100 a.C. — 800 a.C.', color: '#1e293b',
+                    desc: 'Período marcado pelo colapso da civilização micênica. Longe de ser apenas um "vazio", foi o caldeirão silencioso onde a tradição oral gestou a base mítica ocidental, operando à margem de instituições centralizadoras de poder.',
+                    events: [], works: []
+                },
+                {
+                    id: 'p_arcaico', title: 'Período Arcaico Grego', date: 'c. 800 a.C. — 480 a.C.', color: '#b45309',
+                    desc: 'Nascimento das Polis (cidades-estado). Aqui, os mitos deixam de ser apenas narrativas rituais e passam a ser fixados em obras que tentam organizar a estrutura cósmica e a hierarquia do poder.',
+                    events: [
+                        { id: 'e_olimp', name: 'Primeiros Jogos Olímpicos', date: '776 a.C.', desc: 'Unificou culturalmente os povos gregos, transformando a violência guerreira em espetáculo ritualizado sob a chancela do poder.' }
+                    ],
+                    works: [
+                        { id: 'w_homero', name: 'Ilíada e Odisseia (Homero)', date: 'c. 750 a.C.', desc: 'Sob o verniz das batalhas, esconde-se a primeira anatomia da fragilidade humana frente às narrativas e forças institucionais.' },
+                        { id: 'w_hesiodo', name: 'Teogonia (Hesíodo)', date: 'c. 700 a.C.', desc: 'Sistematiza o poder de Zeus. Registro seminal do Mito de Prometeu: a eterna tensão entre autonomia técnica humana e punição arbitrária do Estado/Deuses.' }
+                    ]
+                },
+                {
+                    id: 'p_classico', title: 'Período Clássico Grego', date: '480 a.C. — 323 a.C.', color: '#1d4ed8',
+                    desc: 'O auge filosófico e político de Atenas. Sob a razão e democracia, floresce o imperialismo. Berço das obras que rasgaram o discurso oficial e mergulharam na falha da percepção humana.',
+                    events: [
+                        { id: 'e_pericles', name: 'Governo de Péricles', date: '461 — 429 a.C.', desc: 'Apogeu de Atenas que alimentou a arrogância institucional e cimentou o poder através do monopólio da narrativa.' },
+                        { id: 'e_socrates', name: 'Condenação de Sócrates', date: '399 a.C.', desc: 'A instituição elimina fisicamente o elemento que forçava a desconstrução das ilusões sociais da massa.' }
+                    ],
+                    works: [
+                        { id: 'w_edipo', name: 'Édipo Rei (Sófocles)', date: '429 a.C.', desc: 'A anatomia da cegueira psíquica. O sujeito descobre que suas certezas conscientes são fraudes e que ele é operado por forças ocultas.' },
+                        { id: 'w_republica', name: 'A República (Platão)', date: '375 a.C.', desc: 'Contém a Alegoria da Caverna: o trauma de descobrir que a realidade compartilhada é apenas uma narrativa fabricada por quem detém o poder de projetar as sombras.' }
+                    ]
+                }
+            ]
+        },
+        {
+            id: 't_roma', title: 'Roma',
+            periods: [
+                {
+                    id: 'p_republica', title: 'República Romana', date: '509 a.C. — 27 a.C.', color: '#991b1b',
+                    desc: 'Estabelecimento de um complexo sistema de freios institucionais gerido pelo Senado. Colapsou quando o poder militar se descolou do discurso legal.',
+                    events: [
+                        { id: 'e_cesar', name: 'Assassinato de Júlio César', date: '44 a.C.', desc: 'O colapso da velha narrativa republicana. O assassinato precipita a substituição da burocracia por um poder pessoal incontestável.' }
+                    ], works: []
+                },
+                {
+                    id: 'p_imperio', title: 'Império Romano', date: '27 a.C. — 476 d.C.', color: '#b45309',
+                    desc: 'Centralização total. A transição da Antiguidade para o alvorecer da Idade Média: o controle passa de vigilância física para vigilância psicológica interna.',
+                    events: [
+                        { id: 'e_augusto', name: 'Ascensão de Augusto', date: '27 a.C. — 14 d.C.', desc: 'A invenção da "Pax Romana": uma narrativa cosmética criada para anestesiar o esvaziamento político das antigas instituições livres.' }
+                    ],
+                    works: [
+                        { id: 'w_meditacoes', name: 'Meditações (Marco Aurélio)', date: 'c. 161 — 180 d.C.', desc: 'A busca desesperada por manter o tribunal interno intacto diante do ruído incessante do poder político.' },
+                        { id: 'w_agostinho', name: 'Confissões (Agostinho de Hipona)', date: '397 d.C.', desc: 'A invenção da neurose ocidental. Agostinho internaliza o olhar do poder: a transgressão deixa de ser apenas cívica para se tornar uma mancha inata no sujeito.' }
+                    ]
+                }
+            ]
+        }
+    ];
+
+    // --- ESTADO DA APLICAÇÃO ---
+    let timelines = JSON.parse(localStorage.getItem('antiqTimelineData')) || defaultData;
+    let currentModalContext = {}; // Guarda onde o novo item será inserido
+
+    // --- FUNÇÕES PRINCIPAIS DE RENDERIZAÇÃO ---
+    function render() {
+        const container = document.getElementById('app-container');
+        container.innerHTML = ''; // Limpa tudo
+
+        timelines.forEach(tl => {
+            let col = document.createElement('div');
+            col.className = 'column-wrapper';
+            
+            // Header da Coluna
+            col.innerHTML = `
+                <div class="column-header">
+                    <h2 class="column-title">${tl.title}</h2>
+                    <div>
+                        <button class="btn-add" onclick="openModal('period', '${tl.id}')">+ Período</button>
+                        <button class="btn-delete" title="Excluir Coluna" onclick="deleteItem('timeline', '${tl.id}')">🗑️</button>
+                    </div>
+                </div>
+                <div class="periods-container" id="periods-${tl.id}"></div>
+            `;
+            container.appendChild(col);
+
+            const periodsContainer = col.querySelector(`#periods-${tl.id}`);
+
+            // Renderizar Períodos
+            tl.periods.forEach(per => {
+                let pBlock = document.createElement('div');
+                pBlock.className = 'period-block';
+                pBlock.innerHTML = `
+                    <div class="period-header" style="background-color: ${per.color};">
+                        <div class="period-header-click" onclick="toggleAccordion(this.parentElement.parentElement)">
+                            <span class="period-title">${per.title}</span>
+                            <span class="period-date">${per.date}</span>
+                            <svg class="icon-arrow" width="16" height="16" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+                        </div>
+                        <button class="btn-delete" style="color:white" onclick="deleteItem('period', '${tl.id}', '${per.id}')">🗑️</button>
+                    </div>
+                    <div class="accordion-wrapper">
+                        <div class="accordion-content">
+                            <div class="period-inner-content">
+                                ${per.desc ? `<div class="period-text">${per.desc}</div>` : ''}
+                                <div class="split-content">
+                                    <div class="split-col">
+                                        <div class="split-col-header">
+                                            <h4>EVENTOS</h4>
+                                            <button class="btn-add" onclick="openModal('event', '${tl.id}', '${per.id}')">+ Add</button>
+                                        </div>
+                                        <div id="events-${per.id}"></div>
+                                    </div>
+                                    <div class="split-col">
+                                        <div class="split-col-header">
+                                            <h4>OBRAS / TEXTOS</h4>
+                                            <button class="btn-add" onclick="openModal('work', '${tl.id}', '${per.id}')">+ Add</button>
+                                        </div>
+                                        <div id="works-${per.id}"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                periodsContainer.appendChild(pBlock);
+
+                // Renderizar Eventos
+                const evContainer = pBlock.querySelector(`#events-${per.id}`);
+                per.events.forEach(ev => { evContainer.appendChild(createItemHTML(ev, tl.id, per.id, 'event')); });
+
+                // Renderizar Obras
+                const wkContainer = pBlock.querySelector(`#works-${per.id}`);
+                per.works.forEach(wk => { wkContainer.appendChild(createItemHTML(wk, tl.id, per.id, 'work')); });
+            });
+        });
+    }
+
+    function createItemHTML(item, tlId, perId, type) {
+        let div = document.createElement('div');
+        div.className = 'event-item';
+        div.innerHTML = `
+            <div class="event-trigger-container">
+                <div class="event-trigger" onclick="toggleAccordion(this.parentElement.parentElement)">
+                    <span class="event-name">${item.name}</span>
+                    <span class="event-date-badge">${item.date}</span>
+                    ${item.desc ? '<svg class="icon-arrow" width="14" height="14" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>' : ''}
+                </div>
+                <button class="btn-delete" onclick="deleteItem('${type}', '${tlId}', '${perId}', '${item.id}')">🗑️</button>
+            </div>
+            ${item.desc ? `
+            <div class="accordion-wrapper">
+                <div class="accordion-content">
+                    <div class="event-desc">${item.desc}</div>
+                </div>
+            </div>` : ''}
+        `;
+        return div;
+    }
+
+    function toggleAccordion(element) {
+        element.classList.toggle('open');
+    }
+
+    // --- FUNÇÕES DE CRUD E MODAL ---
+    function saveData() {
+        localStorage.setItem('antiqTimelineData', JSON.stringify(timelines));
+        render();
+    }
+
+    function generateId() {
+        return '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    function deleteItem(type, tlId, perId = null, itemId = null) {
+        if (!confirm('Tem certeza que deseja excluir?')) return;
+
+        if (type === 'timeline') {
+            timelines = timelines.filter(t => t.id !== tlId);
+        } else if (type === 'period') {
+            let tl = timelines.find(t => t.id === tlId);
+            tl.periods = tl.periods.filter(p => p.id !== perId);
+        } else if (type === 'event' || type === 'work') {
+            let tl = timelines.find(t => t.id === tlId);
+            let per = tl.periods.find(p => p.id === perId);
+            if (type === 'event') per.events = per.events.filter(e => e.id !== itemId);
+            if (type === 'work') per.works = per.works.filter(w => w.id !== itemId);
+        }
+        saveData();
+    }
+
+    function openModal(type, tlId = null, perId = null) {
+        currentModalContext = { type, tlId, perId };
+        
+        // Reseta os campos
+        document.getElementById('input-title').value = '';
+        document.getElementById('input-date').value = '';
+        document.getElementById('input-desc').value = '';
+        document.getElementById('input-color').value = '#1d4ed8';
+
+        // Configura a visibilidade dos campos dependendo do que está sendo criado
+        document.getElementById('group-date').style.display = type === 'timeline' ? 'none' : 'block';
+        document.getElementById('group-desc').style.display = type === 'timeline' ? 'none' : 'block';
+        document.getElementById('group-color').style.display = type === 'period' ? 'block' : 'none';
+
+        let titles = { 'timeline': 'Nova Coluna', 'period': 'Novo Período', 'event': 'Novo Evento', 'work': 'Nova Obra/Texto' };
+        document.getElementById('modal-title').innerText = titles[type];
+
+        document.getElementById('modal').classList.add('active');
+    }
+
+    function closeModal() {
+        document.getElementById('modal').classList.remove('active');
+    }
+
+    function saveItem() {
+        let title = document.getElementById('input-title').value.trim();
+        let date = document.getElementById('input-date').value.trim();
+        let desc = document.getElementById('input-desc').value.trim();
+        let color = document.getElementById('input-color').value;
+
+        if (!title) return alert('O título/nome é obrigatório!');
+
+        let { type, tlId, perId } = currentModalContext;
+
+        if (type === 'timeline') {
+            timelines.push({ id: generateId(), title: title, periods: [] });
+        } else if (type === 'period') {
+            let tl = timelines.find(t => t.id === tlId);
+            tl.periods.push({ id: generateId(), title, date, desc, color, events: [], works: [] });
+        } else if (type === 'event' || type === 'work') {
+            let per = timelines.find(t => t.id === tlId).periods.find(p => p.id === perId);
+            let newItem = { id: generateId(), name: title, date, desc };
+            if (type === 'event') per.events.push(newItem);
+            else per.works.push(newItem);
+        }
+
+        closeModal();
+        saveData();
+    }
+
+    // Iniciar
+    render();
+</script>
+
+</body>
+</html>
