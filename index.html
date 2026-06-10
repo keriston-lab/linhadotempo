@@ -809,19 +809,58 @@
     }
 
     // --- ESCRITA E MODIFICAÇÃO DE DADOS ---
-    function openModal(type, tlId = null, perId = null, itemId = null, isEdit = false) {
-        currentModalContext = { type, tlId, perId, itemId, isEdit };
-        
-        document.getElementById('input-title').value = '';
-        document.getElementById('input-date').value = '';
-        document.getElementById('input-desc').value = '';
+   function openModal(type, tlId = null, perId = null, itemId = null, isEdit = false) {
+            currentModalContext = { type, tlId, perId, itemId, isEdit };
 
-        document.getElementById('group-date').style.display = type === 'timeline' ? 'none' : 'block';
-        document.getElementById('group-desc').style.display = type === 'timeline' ? 'none' : 'block';
-        document.getElementById('group-color').style.display = type === 'period' ? 'block' : 'none';
-        
-        document.getElementById('modal').classList.add('active');
-    }
+            // 1. Limpa os campos por padrão para o caso de um novo cadastro
+            document.getElementById('input-title').value = '';
+            document.getElementById('input-date').value = '';
+            document.getElementById('input-desc').value = '';
+
+            // 2. Controla o título do Modal e a exibição visual dos campos corretos
+            const modalTitleEl = document.getElementById('modal-title');
+            let prefixoAcao = isEdit ? "Editar" : "Adicionar";
+
+            if (type === 'timeline') modalTitleEl.innerText = `${prefixoAcao} Linha do Tempo`;
+            if (type === 'period') modalTitleEl.innerText = `${prefixoAcao} Período`;
+            if (type === 'event') modalTitleEl.innerText = `${prefixoAcao} Evento`;
+            if (type === 'work') modalTitleEl.innerText = `${prefixoAcao} Obra / Texto`;
+
+            document.getElementById('group-date').style.display = type === 'timeline' ? 'none' : 'block';
+            document.getElementById('group-desc').style.display = type === 'timeline' ? 'none' : 'block';
+            document.getElementById('group-color').style.display = type === 'period' ? 'block' : 'none';
+
+            // 3. SE FOR EDIÇÃO: Recupera os dados existentes na memória para preencher os inputs automaticamente
+            if (isEdit) {
+                if (type === 'timeline') {
+                    const tl = timelines.find(t => t.id === tlId);
+                    if (tl) document.getElementById('input-title').value = tl.title || '';
+                } else if (type === 'period') {
+                    const tl = timelines.find(t => t.id === tlId);
+                    const per = tl?.periods?.find(p => p.id === perId);
+                    if (per) {
+                        document.getElementById('input-title').value = per.title || '';
+                        document.getElementById('input-date').value = per.date_str || '';
+                        document.getElementById('input-desc').value = per.description || '';
+                        if (per.color) document.getElementById('input-color').value = per.color;
+                    }
+                } else if (type === 'event' || type === 'work') {
+                    const tl = timelines.find(t => t.id === tlId);
+                    const per = tl?.periods?.find(p => p.id === perId);
+                    const listaAlvo = type === 'event' ? per?.events : per?.works;
+                    const item = listaAlvo?.find(i => i.id === itemId);
+                    
+                    if (item) {
+                        document.getElementById('input-title').value = item.name || '';
+                        document.getElementById('input-date').value = item.date_str || '';
+                        document.getElementById('input-desc').value = item.description || '';
+                    }
+                }
+            }
+
+            // 4. Ativa a exibição visual do modal na tela
+            document.getElementById('modal').classList.add('active');
+        }
     
     function closeModal() { document.getElementById('modal').classList.remove('active'); }
 
