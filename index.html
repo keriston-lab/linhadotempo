@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Linha do Tempo Crítica da Antiguidade</title>
+    <title>Linha do Tempo</title>
     
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -359,6 +359,38 @@
         .modal-content h3 { margin-bottom: 20px; color: #fff; }
         .input-group { margin-bottom: 15px; }
         .input-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 5px; }
+        
+        /* Cabeçalho da área de formatação */
+        .desc-label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .text-formatter-bar {
+            display: flex;
+            gap: 4px;
+        }
+        .btn-format {
+            background: #1f2937;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 2px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: all 0.15s;
+        }
+        .btn-format:hover {
+            background: #374151;
+            border-color: var(--text-muted);
+        }
+        .btn-format.btn-italic {
+            font-style: italic;
+            font-family: "Georgia", serif;
+        }
+
         .input-group input[type="text"], .input-group input[type="password"], .input-group textarea {
             width: 100%; padding: 10px; border-radius: 4px; border: 1px solid var(--border-color);
             background: #1f2937; color: #fff; font-family: inherit;
@@ -368,7 +400,6 @@
         .btn-save { background: var(--action-color); color: #fff; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; transition: background 0.2s; }
         .btn-cancel { background: transparent; color: #fff; border: 1px solid var(--border-color); padding: 10px 20px; border-radius: 4px; cursor: pointer; }
 
-        /* Alerta de Exclusão */
         .delete-alert-box {
             padding: 12px;
             color: #f87171;
@@ -403,7 +434,7 @@
 
     <header>
         <h1>Linha do Tempo</h1>
-        <p>Uma investigação visual sobre Estruturas de Poder</p>
+        <p>Uma investigação visual</p>
     </header>
 
     <div class="main-layout">
@@ -452,7 +483,13 @@
                 <input type="color" id="input-color" value="#1d4ed8">
             </div>
             <div class="input-group" id="group-desc" style="display:none;">
-                <label>Texto Descritivo / Análise Crítica</label>
+                <div class="desc-label-row">
+                    <label style="margin-bottom: 0;">Texto Descritivo / Análise Crítica</label>
+                    <div class="text-formatter-bar">
+                        <button type="button" class="btn-format" onclick="formatSelectedText('bold')">B</button>
+                        <button type="button" class="btn-format btn-italic" onclick="formatSelectedText('italic')">I</button>
+                    </div>
+                </div>
                 <textarea id="input-desc"></textarea>
             </div>
         </div>
@@ -818,7 +855,6 @@
         const deleteWarningEl = document.getElementById('modal-delete-warning');
         const fieldsWrapper = document.getElementById('modal-fields-wrapper');
 
-        // Reseta o estado estético padrão do botão e visibilidade dos campos
         if (submitBtn) {
             submitBtn.style.backgroundColor = 'var(--action-color)';
             submitBtn.innerText = 'Salvar';
@@ -831,10 +867,9 @@
         document.getElementById('group-desc').style.display = type === 'timeline' ? 'none' : 'block';
         document.getElementById('group-color').style.display = type === 'period' ? 'block' : 'none';
 
-        // FLUXO DE EXCLUSÃO CUSTOMIZADA E PADRONIZADA
         if (isDelete) {
             modalTitleEl.innerText = `Confirmar Exclusão`;
-            fieldsWrapper.style.display = 'none'; // Esconde os inputs normais de preenchimento
+            fieldsWrapper.style.display = 'none';
 
             let identificadorNome = "este registro";
             if (type === 'timeline') {
@@ -871,7 +906,6 @@
             return; 
         }
 
-        // FLUXO DE EDIÇÃO OU ADIÇÃO DE ITENS
         let prefixoAcao = isEdit ? "Editar" : "Adicionar";
         if (type === 'timeline') modalTitleEl.innerText = `${prefixoAcao} Linha do Tempo`;
         if (type === 'period') modalTitleEl.innerText = `${prefixoAcao} Período`;
@@ -918,11 +952,40 @@
     
     function closeModal() { document.getElementById('modal').classList.remove('active'); }
 
+    // --- FUNÇÃO EXCLUSIVA DE FORMATAÇÃO DE TEXTO SELECIONADO ---
+    function formatSelectedText(styleType) {
+        const textarea = document.getElementById('input-desc');
+        if (!textarea) return;
+
+        const startPos = textarea.selectionStart;
+        const endPos = textarea.selectionEnd;
+        const textOriginal = textarea.value;
+
+        // Captura o trecho que o usuário selecionou com o mouse
+        const textSelected = textOriginal.substring(startPos, endPos);
+
+        // Define as tags correspondentes ao estilo desejado
+        const tagOpen = styleType === 'bold' ? '<strong>' : '<em>';
+        const tagClose = styleType === 'bold' ? '</strong>' : 'em>';
+
+        // Reconstrói o texto inserindo as tags cirurgicamente apenas nas bordas da seleção
+        const textModificado = 
+            textOriginal.substring(0, startPos) + 
+            tagOpen + textSelected + tagClose + 
+            textOriginal.substring(endPos);
+
+        textarea.value = textModificado;
+
+        // Reposiciona o cursor e foca novamente na caixa de texto para não perder o fluxo
+        textarea.focus();
+        const novoCursorPos = startPos + tagOpen.length + textSelected.length + tagClose.length;
+        textarea.setSelectionRange(novoCursorPos, novoCursorPos);
+    }
+
     async function saveItem() {
         let { type, tlId, perId, itemId, isEdit, isDelete } = currentModalContext;
         if (!currentUser) return alert("Você precisa estar logado para executar alterações.");
 
-        // INTERCEPTADOR EXCLUSIVO DA CAIXA DE EXCLUSÃO PERSONALIZADA
         if (isDelete) {
             if (type === 'timeline') await supabaseClient.from('timelines').delete().eq('id', tlId);
             else if (type === 'period') await supabaseClient.from('periods').delete().eq('id', perId);
