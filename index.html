@@ -653,92 +653,93 @@
         const container = document.getElementById('app-container');
         container.innerHTML = '';
 
+        // Se o banco estiver vazio, exibe o aviso, mas NÃO usa o "return" para travar o script
         if (timelines.length === 0) {
-            container.innerHTML = `<p style="color:var(--text-muted); padding: 20px;">Nenhuma linha do tempo encontrada aqui.</p>`;
-            return;
-        }
-
-        timelines.forEach(tl => {
-            const canEditThisTimeline = determineEditable(tl.user_id);
-            let col = document.createElement('div');
-            col.className = 'column-wrapper';
-            col.id = `tl_wrapper_${tl.id}`;
-            col.innerHTML = `
-                <div class="column-header">
-                    <h2 class="column-title">${tl.title}</h2>
-                    <div style="display: flex; align-items: center;">
-                        ${canEditThisTimeline ? `
-                            <button class="btn-add" onclick="openModal('period', '${tl.id}')">+ Período</button>
-                            <button class="btn-action btn-edit" onclick="openModal('timeline', '${tl.id}', null, null, true)">✏️</button>
-                            <button class="btn-action btn-delete" onclick="deleteItem('timeline', '${tl.id}')">✕</button>
-                            <button class="btn-action btn-drag drag-column">⋮⋮</button>
-                        ` : ''}
-                    </div>
-                </div>
-                <div class="periods-container" id="periods-${tl.id}"></div>
-            `;
-            container.appendChild(col);
-
-            const periodsContainer = col.querySelector(`#periods-${tl.id}`);
-            if (tl.periods) {
-                tl.periods.forEach(per => {
-                    let pBlock = document.createElement('div');
-                    pBlock.id = `block_${per.id}`;
-                    
-                    // Restaura estado aberto/fechado se estivesse na memória
-                    pBlock.className = openAccordionsRegistry.has(pBlock.id) ? 'period-block open' : 'period-block';
-                    
-                    pBlock.innerHTML = `
-                        <div class="period-header" style="background-color: ${per.color || '#1e293b'};">
-                            <div class="period-header-click" onclick="toggleAccordion(this.parentElement.parentElement)">
-                                <span class="period-title">${per.title}</span>
-                                <span class="period-date">${per.date_str || ''}</span>
-                                <svg class="icon-arrow" width="16" height="16" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
-                            </div>
-                            <div class="period-actions">
-                                ${canEditThisTimeline ? `
-                                    <button class="btn-action btn-edit" onclick="openModal('period', '${tl.id}', '${per.id}', null, true)">✏️</button>
-                                    <button class="btn-action btn-delete" onclick="deleteItem('period', '${tl.id}', '${per.id}')">✕</button>
-                                    <button class="btn-action btn-drag drag-period">⋮⋮</button>
-                                ` : ''}
-                            </div>
+            container.innerHTML = `<p style="color:var(--text-muted); padding: 20px;">Nenhuma linha do tempo encontrada aqui. Clique em Entrar ou criar conta para começar.</p>`;
+        } else {
+            // Desenha as colunas normalmente se houver dados no banco
+            timelines.forEach(tl => {
+                const canEditThisTimeline = determineEditable(tl.user_id);
+                let col = document.createElement('div');
+                col.className = 'column-wrapper';
+                col.id = `tl_wrapper_${tl.id}`;
+                col.innerHTML = `
+                    <div class="column-header">
+                        <h2 class="column-title">${tl.title}</h2>
+                        <div style="display: flex; align-items: center;">
+                            ${canEditThisTimeline ? `
+                                <button class="btn-add" onclick="openModal('period', '${tl.id}')">+ Período</button>
+                                <button class="btn-action btn-edit" onclick="openModal('timeline', '${tl.id}', null, null, true)">✏️</button>
+                                <button class="btn-action btn-delete" onclick="deleteItem('timeline', '${tl.id}')">✕</button>
+                                <button class="btn-action btn-drag drag-column">⋮⋮</button>
+                            ` : ''}
                         </div>
-                        <div class="accordion-wrapper">
-                            <div class="accordion-content">
-                                <div class="period-inner-content">
-                                    ${per.description ? `<div class="period-text">${per.description}</div>` : ''}
-                                    <div class="split-content">
-                                        <div class="split-col">
-                                            <div class="split-col-header">
-                                                <h4>EVENTOS</h4>
-                                                ${canEditThisTimeline ? `<button class="btn-add" onclick="openModal('event', '${tl.id}', '${per.id}')">+ Add</button>` : ''}
+                    </div>
+                    <div class="periods-container" id="periods-${tl.id}"></div>
+                `;
+                container.appendChild(col);
+
+                const periodsContainer = col.querySelector(`#periods-${tl.id}`);
+                if (tl.periods) {
+                    tl.periods.forEach(per => {
+                        let pBlock = document.createElement('div');
+                        pBlock.id = `block_${per.id}`;
+                        
+                        // Restaura o estado aberto/fechado se estivesse na memória
+                        pBlock.className = openAccordionsRegistry.has(pBlock.id) ? 'period-block open' : 'period-block';
+                        
+                        pBlock.innerHTML = `
+                            <div class="period-header" style="background-color: ${per.color || '#1e293b'};">
+                                <div class="period-header-click" onclick="toggleAccordion(this.parentElement.parentElement)">
+                                    <span class="period-title">${per.title}</span>
+                                    <span class="period-date">${per.date_str || ''}</span>
+                                    <svg class="icon-arrow" width="16" height="16" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+                                </div>
+                                <div class="period-actions">
+                                    ${canEditThisTimeline ? `
+                                        <button class="btn-action btn-edit" onclick="openModal('period', '${tl.id}', '${per.id}', null, true)">✏️</button>
+                                        <button class="btn-action btn-delete" onclick="deleteItem('period', '${tl.id}', '${per.id}')">✕</button>
+                                        <button class="btn-action btn-drag drag-period">⋮⋮</button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                            <div class="accordion-wrapper">
+                                <div class="accordion-content">
+                                    <div class="period-inner-content">
+                                        ${per.description ? `<div class="period-text">${per.description}</div>` : ''}
+                                        <div class="split-content">
+                                            <div class="split-col">
+                                                <div class="split-col-header">
+                                                    <h4>EVENTOS</h4>
+                                                    ${canEditThisTimeline ? `<button class="btn-add" onclick="openModal('event', '${tl.id}', '${per.id}')">+ Add</button>` : ''}
+                                                </div>
+                                                <div id="events-${per.id}" class="items-sortable-list" data-period="${per.id}" data-type="event"></div>
                                             </div>
-                                            <div id="events-${per.id}" class="items-sortable-list" data-period="${per.id}" data-type="event"></div>
-                                        </div>
-                                        <div class="split-col">
-                                            <div class="split-col-header">
-                                                <h4>OBRAS / TEXTOS</h4>
-                                                ${canEditThisTimeline ? `<button class="btn-add" onclick="openModal('work', '${tl.id}', '${per.id}')">+ Add</button>` : ''}
+                                            <div class="split-col">
+                                                <div class="split-col-header">
+                                                    <h4>OBRAS / TEXTOS</h4>
+                                                    ${canEditThisTimeline ? `<button class="btn-add" onclick="openModal('work', '${tl.id}', '${per.id}')">+ Add</button>` : ''}
+                                                </div>
+                                                <div id="works-${per.id}" class="items-sortable-list" data-period="${per.id}" data-type="work"></div>
                                             </div>
-                                            <div id="works-${per.id}" class="items-sortable-list" data-period="${per.id}" data-type="work"></div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    `;
-                    periodsContainer.appendChild(pBlock);
+                        `;
+                        periodsContainer.appendChild(pBlock);
 
-                    const evContainer = pBlock.querySelector(`#events-${per.id}`);
-                    if (per.events) per.events.forEach(ev => { evContainer.appendChild(createItemHTML(ev, tl.id, per.id, 'event', canEditThisTimeline)); });
+                        const evContainer = pBlock.querySelector(`#events-${per.id}`);
+                        if (per.events) per.events.forEach(ev => { evContainer.appendChild(createItemHTML(ev, tl.id, per.id, 'event', canEditThisTimeline)); });
 
-                    const wkContainer = pBlock.querySelector(`#works-${per.id}`);
-                    if (per.works) per.works.forEach(wk => { wkContainer.appendChild(createItemHTML(wk, tl.id, per.id, 'work', canEditThisTimeline)); });
-                });
-            }
-        });
+                        const wkContainer = pBlock.querySelector(`#works-${per.id}`);
+                        if (per.works) per.works.forEach(wk => { wkContainer.appendChild(createItemHTML(wk, tl.id, per.id, 'work', canEditThisTimeline)); });
+                    });
+                }
+            });
+        }
         
-        // Limpa registro temporário após renderizar para o próximo ciclo
+        // Mantido fora do bloco condicional para que a inicialização ocorra sempre
         openAccordionsRegistry.clear();
         setTimeout(initSortables, 50);
     }
