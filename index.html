@@ -30,7 +30,8 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1500px; /* Aumentado o limite horizontal */
+            width: 95%; /* Garante que ocupe bem o espaço em telas menores */
             margin: 0 auto;
         }
 
@@ -102,20 +103,39 @@
             font-size: 1rem;
         }
 
-        .btn-delete {
+        /* Novos Botões de Ação com contorno */
+        .btn-action {
             background: transparent;
-            color: var(--text-muted);
-            border: none;
+            border-radius: 6px;
+            width: 32px;
+            height: 32px;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
             cursor: pointer;
-            padding: 4px;
-            border-radius: 4px;
             transition: all 0.2s;
-            opacity: 0.5;
+            font-size: 14px;
+            margin-left: 6px;
+        }
+
+        .btn-edit {
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+        }
+        .btn-edit:hover {
+            color: #ffffff;
+            border-color: #ffffff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-delete {
+            color: var(--danger-color);
+            border: 1px solid var(--danger-color);
+            font-weight: bold;
         }
         .btn-delete:hover {
-            color: var(--danger-color);
-            background: rgba(239, 68, 68, 0.1);
-            opacity: 1;
+            background: rgba(239, 68, 68, 0.15);
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.3); /* Brilho vermelho sutil igual à imagem */
         }
 
         /* Blocos de Período */
@@ -332,6 +352,7 @@
     let currentModalContext = {}; 
 
     // --- FUNÇÕES PRINCIPAIS DE RENDERIZAÇÃO ---
+    // --- FUNÇÕES PRINCIPAIS DE RENDERIZAÇÃO ---
     function render() {
         const container = document.getElementById('app-container');
         container.innerHTML = ''; 
@@ -342,11 +363,14 @@
             
             col.innerHTML = `
                 <div class="column-header">
-                    <h2 class="column-title">${tl.title}</h2>
-                    <div>
+                    <div class="column-title-area">
+                        <span class="drag-handle drag-column" title="Mover Coluna">⋮⋮</span>
+                        <h2 class="column-title">${tl.title}</h2>
+                    </div>
+                    <div style="display: flex; align-items: center;">
                         <button class="btn-add" onclick="openModal('period', '${tl.id}')">+ Período</button>
-                        <button class="btn-delete" title="Editar Nome da Coluna" onclick="openModal('timeline', '${tl.id}', null, null, true)">✏️</button>
-                        <button class="btn-delete" title="Excluir Coluna" onclick="deleteItem('timeline', '${tl.id}')">🗑️</button>
+                        <button class="btn-action btn-edit" title="Editar Nome da Coluna" onclick="openModal('timeline', '${tl.id}', null, null, true)">✏️</button>
+                        <button class="btn-action btn-delete" title="Excluir Coluna" onclick="deleteItem('timeline', '${tl.id}')">✕</button>
                     </div>
                 </div>
                 <div class="periods-container" id="periods-${tl.id}"></div>
@@ -360,14 +384,15 @@
                 pBlock.className = 'period-block';
                 pBlock.innerHTML = `
                     <div class="period-header" style="background-color: ${per.color};">
+                        <span class="drag-handle drag-period" title="Mover Período" style="color: rgba(255,255,255,0.7);">⋮⋮</span>
                         <div class="period-header-click" onclick="toggleAccordion(this.parentElement.parentElement)">
                             <span class="period-title">${per.title}</span>
                             <span class="period-date">${per.date}</span>
                             <svg class="icon-arrow" width="16" height="16" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
                         </div>
-                        <div>
-                            <button class="btn-delete" style="color:white; margin-right: 4px;" title="Editar Período" onclick="openModal('period', '${tl.id}', '${per.id}', null, true)">✏️</button>
-                            <button class="btn-delete" style="color:white" title="Excluir Período" onclick="deleteItem('period', '${tl.id}', '${per.id}')">🗑️</button>
+                        <div style="display:flex; align-items: center;">
+                            <button class="btn-action btn-edit" style="border-color: rgba(255,255,255,0.3); color: white;" title="Editar Período" onclick="openModal('period', '${tl.id}', '${per.id}', null, true)">✏️</button>
+                            <button class="btn-action btn-delete" title="Excluir Período" onclick="deleteItem('period', '${tl.id}', '${per.id}')">✕</button>
                         </div>
                     </div>
                     <div class="accordion-wrapper">
@@ -403,6 +428,9 @@
                 per.works.forEach(wk => { wkContainer.appendChild(createItemHTML(wk, tl.id, per.id, 'work')); });
             });
         });
+
+        // Inicializa o drag and drop logo após desenhar tudo na tela
+        initSortables();
     }
 
     function createItemHTML(item, tlId, perId, type) {
@@ -410,14 +438,15 @@
         div.className = 'event-item';
         div.innerHTML = `
             <div class="event-trigger-container">
+                <span class="drag-handle drag-item" title="Mover Item">⋮⋮</span>
                 <div class="event-trigger" onclick="toggleAccordion(this.parentElement.parentElement)">
                     <span class="event-name">${item.name}</span>
                     <span class="event-date-badge">${item.date}</span>
                     ${item.desc ? '<svg class="icon-arrow" width="14" height="14" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>' : ''}
                 </div>
                 <div style="display: flex; align-items: center;">
-                    <button class="btn-delete" style="margin-right: 4px;" title="Editar" onclick="openModal('${type}', '${tlId}', '${perId}', '${item.id}', true)">✏️</button>
-                    <button class="btn-delete" title="Excluir" onclick="deleteItem('${type}', '${tlId}', '${perId}', '${item.id}')">🗑️</button>
+                    <button class="btn-action btn-edit" title="Editar" onclick="openModal('${type}', '${tlId}', '${perId}', '${item.id}', true)">✏️</button>
+                    <button class="btn-action btn-delete" title="Excluir" onclick="deleteItem('${type}', '${tlId}', '${perId}', '${item.id}')">✕</button>
                 </div>
             </div>
             ${item.desc ? `
