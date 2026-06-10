@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Linha do Tempo Crítica da Antiguidade</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
     <style>
         :root {
             --bg-color: #0b0f19;
@@ -30,8 +33,8 @@
         }
 
         .container {
-            max-width: 1500px; /* Aumentado o limite horizontal */
-            width: 95%; /* Garante que ocupe bem o espaço em telas menores */
+            max-width: 1500px;
+            width: 95%;
             margin: 0 auto;
         }
 
@@ -82,7 +85,7 @@
             color: #ffffff;
         }
 
-        /* Botões de Ação Dinâmica */
+        /* Botões de Ação Básicos */
         .btn-add {
             background: rgba(59, 130, 246, 0.1);
             color: var(--action-color);
@@ -103,16 +106,15 @@
             font-size: 1rem;
         }
 
-        /* Novos Botões de Ação com contorno */
+        /* Novos Botões de Ação com contorno (Editar, Excluir, Arrastar) */
         .btn-action {
-            background: rgba(0, 0, 0, 0.3); /* Fundo escuro semi-transparente para dar contraste */
+            background: rgba(0, 0, 0, 0.3);
             border-radius: 6px;
             width: 32px;
             height: 32px;
             display: inline-flex;
             justify-content: center;
             align-items: center;
-            cursor: pointer;
             transition: all 0.2s;
             font-size: 14px;
             margin-left: 6px;
@@ -121,6 +123,7 @@
         .btn-edit {
             color: rgba(255, 255, 255, 0.8);
             border: 1px solid rgba(255, 255, 255, 0.2);
+            cursor: pointer;
         }
         .btn-edit:hover {
             color: #ffffff;
@@ -131,12 +134,25 @@
         .btn-delete {
             color: #ef4444;
             border: 1px solid rgba(239, 68, 68, 0.4);
+            cursor: pointer;
         }
         .btn-delete:hover {
             background: rgba(239, 68, 68, 0.25);
             box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); 
             border-color: #ef4444;
         }
+
+        .btn-drag {
+            color: var(--text-muted);
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+            cursor: grab;
+        }
+        .btn-drag:hover {
+            color: #ffffff;
+            border-color: #ffffff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .btn-drag:active { cursor: grabbing; }
 
         /* Blocos de Período */
         .period-block {
@@ -146,6 +162,8 @@
             border: 1px solid var(--border-color);
             overflow: hidden;
         }
+        
+        .sortable-ghost { opacity: 0.4; } 
 
         .period-header {
             padding: 16px 20px;
@@ -194,7 +212,6 @@
         }
         .event-trigger-container:hover { background-color: rgba(255,255,255,0.05); }
         .event-trigger { flex-grow: 1; cursor: pointer; display: flex; align-items: center; flex-wrap: wrap; user-select: none; }
-        .event-trigger:before { content: "•"; color: var(--text-muted); margin-right: 8px; font-size: 1.2rem; line-height: 1; }
         .event-name { font-size: 0.9rem; font-weight: 500; }
         .event-date-badge {
             font-size: 0.75rem; color: var(--text-muted); background: rgba(255,255,255,0.05);
@@ -212,7 +229,7 @@
         /* Modal / Pop-up de Criação */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: transparent;
+            background: transparent; 
             display: flex; justify-content: center; align-items: center;
             z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
         }
@@ -220,6 +237,7 @@
         .modal-content {
             background: var(--card-bg); width: 100%; max-width: 500px;
             padding: 30px; border-radius: 8px; border: 1px solid var(--border-color);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5); 
         }
         .modal-content h3 { margin-bottom: 20px; color: #fff; }
         .input-group { margin-bottom: 15px; }
@@ -287,27 +305,24 @@
 </div>
 
 <script>
-    // --- DADOS INICIAIS ---
+    // Se não houver nada no LocalStorage, usa essa estrutura básica para evitar erros
     const defaultData = [
         {
             id: 't_grecia', title: 'Grécia',
-            periods: [
-                {
-                    id: 'p_trevas', title: 'Idade das Trevas Grega', date: 'c. 1100 a.C. — 800 a.C.', color: '#1e293b',
-                    desc: 'Período marcado pelo colapso da civilização micênica.',
-                    events: [], works: []
-                }
-            ]
+            periods: [{ id: 'p_trevas', title: 'Idade das Trevas Grega', date: 'c. 1100 a.C. — 800 a.C.', color: '#1e293b', desc: 'Período base.', events: [], works: [] }]
         }
     ];
 
-    // Carrega os seus dados salvos ou o padrão
     let timelines = JSON.parse(localStorage.getItem('antiqTimelineData')) || defaultData;
     let currentModalContext = {}; 
 
     // --- FUNÇÕES DE ARRASTAR E SOLTAR (SortableJS) ---
     function initSortables() {
-        // Arrastar Colunas
+        if (typeof Sortable === 'undefined') {
+            console.error("SortableJS não foi carregado corretamente.");
+            return;
+        }
+
         const container = document.getElementById('app-container');
         new Sortable(container, {
             animation: 150,
@@ -319,7 +334,6 @@
             }
         });
 
-        // Arrastar Períodos e Itens
         timelines.forEach(tl => {
             const periodsContainer = document.getElementById(`periods-${tl.id}`);
             if (periodsContainer) {
@@ -376,14 +390,12 @@
             
             col.innerHTML = `
                 <div class="column-header">
-                    <div class="column-title-area">
-                        <span class="drag-handle drag-column" title="Mover Coluna">⋮⋮</span>
-                        <h2 class="column-title">${tl.title}</h2>
-                    </div>
+                    <h2 class="column-title">${tl.title}</h2>
                     <div style="display: flex; align-items: center;">
                         <button class="btn-add" onclick="openModal('period', '${tl.id}')">+ Período</button>
                         <button class="btn-action btn-edit" title="Editar Nome da Coluna" onclick="openModal('timeline', '${tl.id}', null, null, true)">✏️</button>
                         <button class="btn-action btn-delete" title="Excluir Coluna" onclick="deleteItem('timeline', '${tl.id}')">✕</button>
+                        <button class="btn-action btn-drag drag-column" title="Mover Coluna">⋮⋮</button>
                     </div>
                 </div>
                 <div class="periods-container" id="periods-${tl.id}"></div>
@@ -397,189 +409,6 @@
                 pBlock.className = 'period-block';
                 pBlock.innerHTML = `
                     <div class="period-header" style="background-color: ${per.color};">
-                        <span class="drag-handle drag-period" title="Mover Período" style="color: rgba(255,255,255,0.7);">⋮⋮</span>
                         <div class="period-header-click" onclick="toggleAccordion(this.parentElement.parentElement)">
                             <span class="period-title">${per.title}</span>
-                            <span class="period-date">${per.date}</span>
-                            <svg class="icon-arrow" width="16" height="16" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
-                        </div>
-                        <div style="display:flex; align-items: center;">
-                            <button class="btn-action btn-edit" title="Editar Período" onclick="openModal('period', '${tl.id}', '${per.id}', null, true)">✏️</button>
-                            <button class="btn-action btn-delete" title="Excluir Período" onclick="deleteItem('period', '${tl.id}', '${per.id}')">✕</button>
-                        </div>
-                    </div>
-                    <div class="accordion-wrapper">
-                        <div class="accordion-content">
-                            <div class="period-inner-content">
-                                ${per.desc ? `<div class="period-text">${per.desc}</div>` : ''}
-                                <div class="split-content">
-                                    <div class="split-col">
-                                        <div class="split-col-header">
-                                            <h4>EVENTOS</h4>
-                                            <button class="btn-add" onclick="openModal('event', '${tl.id}', '${per.id}')">+ Add</button>
-                                        </div>
-                                        <div id="events-${per.id}"></div>
-                                    </div>
-                                    <div class="split-col">
-                                        <div class="split-col-header">
-                                            <h4>OBRAS / TEXTOS</h4>
-                                            <button class="btn-add" onclick="openModal('work', '${tl.id}', '${per.id}')">+ Add</button>
-                                        </div>
-                                        <div id="works-${per.id}"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                periodsContainer.appendChild(pBlock);
-
-                const evContainer = pBlock.querySelector(`#events-${per.id}`);
-                per.events.forEach(ev => { evContainer.appendChild(createItemHTML(ev, tl.id, per.id, 'event')); });
-
-                const wkContainer = pBlock.querySelector(`#works-${per.id}`);
-                per.works.forEach(wk => { wkContainer.appendChild(createItemHTML(wk, tl.id, per.id, 'work')); });
-            });
-        });
-
-        // Inicializa o drag and drop!
-        initSortables();
-    }
-
-    function createItemHTML(item, tlId, perId, type) {
-        let div = document.createElement('div');
-        div.className = 'event-item';
-        div.innerHTML = `
-            <div class="event-trigger-container">
-                <span class="drag-handle drag-item" title="Mover Item">⋮⋮</span>
-                <div class="event-trigger" onclick="toggleAccordion(this.parentElement.parentElement)">
-                    <span class="event-name">${item.name}</span>
-                    <span class="event-date-badge">${item.date}</span>
-                    ${item.desc ? '<svg class="icon-arrow" width="14" height="14" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>' : ''}
-                </div>
-                <div style="display: flex; align-items: center;">
-                    <button class="btn-action btn-edit" title="Editar" onclick="openModal('${type}', '${tlId}', '${perId}', '${item.id}', true)">✏️</button>
-                    <button class="btn-action btn-delete" title="Excluir" onclick="deleteItem('${type}', '${tlId}', '${perId}', '${item.id}')">✕</button>
-                </div>
-            </div>
-            ${item.desc ? `
-            <div class="accordion-wrapper">
-                <div class="accordion-content">
-                    <div class="event-desc">${item.desc}</div>
-                </div>
-            </div>` : ''}
-        `;
-        return div;
-    }
-
-    function toggleAccordion(element) {
-        element.classList.toggle('open');
-    }
-
-    // --- FUNÇÕES DE CRUD E MODAL ---
-    function saveOnlyData() {
-        localStorage.setItem('antiqTimelineData', JSON.stringify(timelines));
-    }
-
-    function saveDataAndRender() {
-        localStorage.setItem('antiqTimelineData', JSON.stringify(timelines));
-        render();
-    }
-
-    function generateId() {
-        return '_' + Math.random().toString(36).substr(2, 9);
-    }
-
-    function deleteItem(type, tlId, perId = null, itemId = null) {
-        if (!confirm('Tem certeza que deseja excluir?')) return;
-
-        if (type === 'timeline') {
-            timelines = timelines.filter(t => t.id !== tlId);
-        } else if (type === 'period') {
-            let tl = timelines.find(t => t.id === tlId);
-            tl.periods = tl.periods.filter(p => p.id !== perId);
-        } else if (type === 'event' || type === 'work') {
-            let tl = timelines.find(t => t.id === tlId);
-            let per = tl.periods.find(p => p.id === perId);
-            if (type === 'event') per.events = per.events.filter(e => e.id !== itemId);
-            if (type === 'work') per.works = per.works.filter(w => w.id !== itemId);
-        }
-        saveDataAndRender();
-    }
-
-    function openModal(type, tlId = null, perId = null, itemId = null, isEdit = false) {
-        currentModalContext = { type, tlId, perId, itemId, isEdit };
-        
-        let titleVal = ''; let dateVal = ''; let descVal = ''; let colorVal = '#1d4ed8';
-
-        if (isEdit) {
-            if (type === 'timeline') {
-                let tl = timelines.find(t => t.id === tlId); titleVal = tl.title;
-            } else if (type === 'period') {
-                let tl = timelines.find(t => t.id === tlId); let per = tl.periods.find(p => p.id === perId);
-                titleVal = per.title; dateVal = per.date; descVal = per.desc; colorVal = per.color;
-            } else if (type === 'event' || type === 'work') {
-                let tl = timelines.find(t => t.id === tlId); let per = tl.periods.find(p => p.id === perId);
-                let item = type === 'event' ? per.events.find(e => e.id === itemId) : per.works.find(w => w.id === itemId);
-                titleVal = item.name; dateVal = item.date; descVal = item.desc;
-            }
-        }
-
-        document.getElementById('input-title').value = titleVal;
-        document.getElementById('input-date').value = dateVal;
-        document.getElementById('input-desc').value = descVal;
-        document.getElementById('input-color').value = colorVal;
-
-        document.getElementById('group-date').style.display = type === 'timeline' ? 'none' : 'block';
-        document.getElementById('group-desc').style.display = type === 'timeline' ? 'none' : 'block';
-        document.getElementById('group-color').style.display = type === 'period' ? 'block' : 'none';
-
-        let titles = { 
-            'timeline': isEdit ? 'Editar Coluna' : 'Nova Coluna', 
-            'period': isEdit ? 'Editar Período' : 'Novo Período', 
-            'event': isEdit ? 'Editar Evento' : 'Novo Evento', 
-            'work': isEdit ? 'Editar Obra/Texto' : 'Nova Obra/Texto' 
-        };
-        document.getElementById('modal-title').innerText = titles[type];
-        document.getElementById('modal').classList.add('active');
-    }
-
-    function closeModal() { document.getElementById('modal').classList.remove('active'); }
-
-    function saveItem() {
-        let title = document.getElementById('input-title').value.trim();
-        let date = document.getElementById('input-date').value.trim();
-        let desc = document.getElementById('input-desc').value.trim();
-        let color = document.getElementById('input-color').value;
-
-        if (!title) return alert('O título/nome é obrigatório!');
-
-        let { type, tlId, perId, itemId, isEdit } = currentModalContext;
-
-        if (isEdit) {
-            if (type === 'timeline') { timelines.find(t => t.id === tlId).title = title; } 
-            else if (type === 'period') {
-                let per = timelines.find(t => t.id === tlId).periods.find(p => p.id === perId);
-                per.title = title; per.date = date; per.desc = desc; per.color = color;
-            } else if (type === 'event' || type === 'work') {
-                let item = type === 'event' ? timelines.find(t => t.id === tlId).periods.find(p => p.id === perId).events.find(e => e.id === itemId) : timelines.find(t => t.id === tlId).periods.find(p => p.id === perId).works.find(w => w.id === itemId);
-                item.name = title; item.date = date; item.desc = desc;
-            }
-        } else {
-            if (type === 'timeline') { timelines.push({ id: generateId(), title: title, periods: [] }); } 
-            else if (type === 'period') { timelines.find(t => t.id === tlId).periods.push({ id: generateId(), title, date, desc, color, events: [], works: [] }); } 
-            else if (type === 'event' || type === 'work') {
-                let newItem = { id: generateId(), name: title, date, desc };
-                if (type === 'event') timelines.find(t => t.id === tlId).periods.find(p => p.id === perId).events.push(newItem);
-                else timelines.find(t => t.id === tlId).periods.find(p => p.id === perId).works.push(newItem);
-            }
-        }
-        closeModal(); saveDataAndRender();
-    }
-
-    // Iniciar
-    render();
-</script>
-
-</body>
-</html>
+                            <span class
