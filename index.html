@@ -841,4 +841,17 @@
             else if (type === 'period') { timelines.find(t => t.id === tlId).periods.push({ id: generateId(), title, date, desc, color, events: [], works: [] }); } 
             else if (type === 'event' || type === 'work') {
                 let newItem = { id: generateId(), name: title, date, desc };
-                if (type === 'event') timelines.find(t => t.id === tlId).periods.find
+                if (type === 'event') timelines.find(t => t.id === tlId).periods.find(p => p.id === perId).events.push(newItem);
+                else timelines.find(t => t.id === tlId).periods.find(p => p.id === perId).works.push(newItem);
+            }
+        }
+        closeModal(); saveDataAndRender();
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        render();
+    });
+</script>
+
+</body>
+</html>
