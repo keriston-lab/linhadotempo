@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Linha do Tempo Crítica da Antiguidade</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
     <style>
         :root {
             --bg-color: #0b0f19;
@@ -30,7 +33,8 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1500px;
+            width: 95%;
             margin: 0 auto;
         }
 
@@ -81,7 +85,7 @@
             color: #ffffff;
         }
 
-        /* Botões de Ação Dinâmica */
+        /* Botões de Ação Básicos */
         .btn-add {
             background: rgba(59, 130, 246, 0.1);
             color: var(--action-color);
@@ -102,21 +106,53 @@
             font-size: 1rem;
         }
 
-        .btn-delete {
-            background: transparent;
-            color: var(--text-muted);
-            border: none;
-            cursor: pointer;
-            padding: 4px;
-            border-radius: 4px;
+        /* Novos Botões de Ação com contorno (Editar, Excluir, Arrastar) */
+        .btn-action {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            width: 32px;
+            height: 32px;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
             transition: all 0.2s;
-            opacity: 0.5;
+            font-size: 14px;
+            margin-left: 6px;
+        }
+
+        .btn-edit {
+            color: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+        }
+        .btn-edit:hover {
+            color: #ffffff;
+            border-color: #ffffff;
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-delete {
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            cursor: pointer;
         }
         .btn-delete:hover {
-            color: var(--danger-color);
-            background: rgba(239, 68, 68, 0.1);
-            opacity: 1;
+            background: rgba(239, 68, 68, 0.25);
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); 
+            border-color: #ef4444;
         }
+
+        .btn-drag {
+            color: var(--text-muted);
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+            cursor: grab;
+        }
+        .btn-drag:hover {
+            color: #ffffff;
+            border-color: #ffffff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .btn-drag:active { cursor: grabbing; }
 
         /* Blocos de Período */
         .period-block {
@@ -126,6 +162,8 @@
             border: 1px solid var(--border-color);
             overflow: hidden;
         }
+        
+        .sortable-ghost { opacity: 0.4; } 
 
         .period-header {
             padding: 16px 20px;
@@ -174,7 +212,6 @@
         }
         .event-trigger-container:hover { background-color: rgba(255,255,255,0.05); }
         .event-trigger { flex-grow: 1; cursor: pointer; display: flex; align-items: center; flex-wrap: wrap; user-select: none; }
-        .event-trigger:before { content: "•"; color: var(--text-muted); margin-right: 8px; font-size: 1.2rem; line-height: 1; }
         .event-name { font-size: 0.9rem; font-weight: 500; }
         .event-date-badge {
             font-size: 0.75rem; color: var(--text-muted); background: rgba(255,255,255,0.05);
@@ -186,13 +223,13 @@
         }
 
         .icon-arrow { fill: currentColor; opacity: 0.6; transition: transform 0.3s ease; margin-left: 10px; }
-        .period-block.open > .period-header .icon-arrow, .event-item.open > .accordion-wrapper { transform: rotate(180deg); }
+        .period-block.open .period-header-click .icon-arrow { transform: rotate(180deg); }
         .event-item.open .icon-arrow { transform: rotate(180deg); }
 
         /* Modal / Pop-up de Criação */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);
+            background: transparent; 
             display: flex; justify-content: center; align-items: center;
             z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
         }
@@ -200,6 +237,7 @@
         .modal-content {
             background: var(--card-bg); width: 100%; max-width: 500px;
             padding: 30px; border-radius: 8px; border: 1px solid var(--border-color);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5); 
         }
         .modal-content h3 { margin-bottom: 20px; color: #fff; }
         .input-group { margin-bottom: 15px; }
@@ -267,7 +305,7 @@
 </div>
 
 <script>
-    // --- DADOS INICIAIS (Se não houver nada salvo no LocalStorage) ---
+    // --- DADOS INICIAIS COMPLETOS (Recuperação de Segurança) ---
     const defaultData = [
         {
             id: 't_grecia', title: 'Grécia',
@@ -293,12 +331,24 @@
                     desc: 'O auge filosófico e político de Atenas. Sob a razão e democracia, floresce o imperialismo. Berço das obras que rasgaram o discurso oficial e mergulharam na falha da percepção humana.',
                     events: [
                         { id: 'e_pericles', name: 'Governo de Péricles', date: '461 — 429 a.C.', desc: 'Apogeu de Atenas que alimentou a arrogância institucional e cimentou o poder através do monopólio da narrativa.' },
-                        { id: 'e_socrates', name: 'Condenação de Sócrates', date: '399 a.C.', desc: 'A instituição elimina fisicamente o elemento que forçava a desconstrução das ilusões sociais da massa.' }
+                        { id: 'e_socrates', name: 'Condenação de Sócrates', date: '399 a.C.', desc: 'A instituição elimina fisicamente o elemento que forçava a desconstrução das ilusões sociais da massa.' },
+                        { id: 'e_pelo', name: 'Guerra do Peloponeso', date: '431 — 404 a.C.', desc: 'Conflito destrutivo entre Atenas e Esparta, colapsando a ilusão do ideal helênico.' }
                     ],
                     works: [
+                        { id: 'w_antigona', name: 'Antígona (Sófocles)', date: '441 a.C.', desc: 'Embate destrutivo entre a lei arbitrária do Grande Outro (Estado) e a ética insubmissa do sujeito.' },
                         { id: 'w_edipo', name: 'Édipo Rei (Sófocles)', date: '429 a.C.', desc: 'A anatomia da cegueira psíquica. O sujeito descobre que suas certezas conscientes são fraudes e que ele é operado por forças ocultas.' },
+                        { id: 'w_bacantes', name: 'As Bacantes (Eurípides)', date: '405 a.C.', desc: 'O retorno avassalador do reprimido. A instituição estatal tenta recalcar a pulsão irracional e acaba estraçalhada por ela.' },
                         { id: 'w_republica', name: 'A República (Platão)', date: '375 a.C.', desc: 'Contém a Alegoria da Caverna: o trauma de descobrir que a realidade compartilhada é apenas uma narrativa fabricada por quem detém o poder de projetar as sombras.' }
                     ]
+                },
+                {
+                    id: 'p_helenistico', title: 'Período Helenístico', date: '323 a.C. — 31 a.C.', color: '#6d28d9',
+                    desc: 'A Polis perde autonomia e os cidadãos integram impérios vastos. Diante da máquina opressora, surgem escolas radicais de rejeição ou adaptação ao Grande Outro.',
+                    events: [
+                        { id: 'e_alex', name: 'Alexandre, o Grande', date: '336 — 323 a.C.', desc: 'Unificação forçada e aniquilação das autonomias locais. A força bruta se torna o único lastro da realidade.' },
+                        { id: 'e_cinica', name: 'A Ruptura Cínica (Diógenes)', date: 'c. 323 a.C.', desc: 'A rejeição absoluta do sistema simbólico. Provando que a única imunidade contra a máquina institucional é cuspir nas expectativas que a sustentam.' }
+                    ],
+                    works: []
                 }
             ]
         },
@@ -316,9 +366,12 @@
                     id: 'p_imperio', title: 'Império Romano', date: '27 a.C. — 476 d.C.', color: '#b45309',
                     desc: 'Centralização total. A transição da Antiguidade para o alvorecer da Idade Média: o controle passa de vigilância física para vigilância psicológica interna.',
                     events: [
-                        { id: 'e_augusto', name: 'Ascensão de Augusto', date: '27 a.C. — 14 d.C.', desc: 'A invenção da "Pax Romana": uma narrativa cosmética criada para anestesiar o esvaziamento político das antigas instituições livres.' }
+                        { id: 'e_augusto', name: 'Ascensão de Augusto', date: '27 a.C. — 14 d.C.', desc: 'A invenção da "Pax Romana": uma narrativa cosmética criada para anestesiar o esvaziamento político das antigas instituições livres.' },
+                        { id: 'e_nero', name: 'Tirania de Nero', date: '54 — 68 d.C.', desc: 'O Leviatã sem freios. O Estado manifesta sua psicopatia pura através de expurgos e desequilíbrio absolutista.' },
+                        { id: 'e_marco', name: 'Governo de Marco Aurélio', date: '161 — 180 d.C.', desc: 'A máquina pesada. O imperador estóico tenta manter a ordem externa enquanto reconhece a futilidade das glórias do império.' }
                     ],
                     works: [
+                        { id: 'w_seneca', name: 'Cartas a Lucílio (Sêneca)', date: '65 d.C.', desc: 'Manual de sobrevivência. Desconstrói a vaidade, o prestígio vazio e prova que a miséria existencial é fruto das exigências fúteis da sociedade.' },
                         { id: 'w_meditacoes', name: 'Meditações (Marco Aurélio)', date: 'c. 161 — 180 d.C.', desc: 'A busca desesperada por manter o tribunal interno intacto diante do ruído incessante do poder político.' },
                         { id: 'w_agostinho', name: 'Confissões (Agostinho de Hipona)', date: '397 d.C.', desc: 'A invenção da neurose ocidental. Agostinho internaliza o olhar do poder: a transgressão deixa de ser apenas cívica para se tornar uma mancha inata no sujeito.' }
                     ]
@@ -327,26 +380,100 @@
         }
     ];
 
-    // --- ESTADO DA APLICAÇÃO ---
-    let timelines = JSON.parse(localStorage.getItem('antiqTimelineData')) || defaultData;
-    let currentModalContext = {}; // Guarda onde o novo item será inserido
+    // Trava de Segurança: Tenta carregar o localStorage. Se falhar ou estiver vazio, usa o defaultData.
+    let timelines;
+    try {
+        const saved = localStorage.getItem('antiqTimelineData');
+        timelines = saved ? JSON.parse(saved) : null;
+        if (!timelines || timelines.length === 0) {
+            timelines = defaultData;
+        }
+    } catch(e) {
+        timelines = defaultData;
+    }
+
+    let currentModalContext = {}; 
+
+    // --- FUNÇÕES DE ARRASTAR E SOLTAR (SortableJS) ---
+    function initSortables() {
+        if (typeof Sortable === 'undefined') {
+            console.error("SortableJS não carregou. Verifique sua conexão ou extensões do navegador.");
+            return;
+        }
+
+        const container = document.getElementById('app-container');
+        new Sortable(container, {
+            animation: 150,
+            handle: '.drag-column',
+            onEnd: function (evt) {
+                const movedItem = timelines.splice(evt.oldIndex, 1)[0];
+                timelines.splice(evt.newIndex, 0, movedItem);
+                saveOnlyData();
+            }
+        });
+
+        timelines.forEach(tl => {
+            const periodsContainer = document.getElementById(`periods-${tl.id}`);
+            if (periodsContainer) {
+                new Sortable(periodsContainer, {
+                    animation: 150,
+                    handle: '.drag-period',
+                    onEnd: function (evt) {
+                        let tlRef = timelines.find(t => t.id === tl.id);
+                        const movedItem = tlRef.periods.splice(evt.oldIndex, 1)[0];
+                        tlRef.periods.splice(evt.newIndex, 0, movedItem);
+                        saveOnlyData();
+                    }
+                });
+
+                tl.periods.forEach(per => {
+                    const evContainer = document.getElementById(`events-${per.id}`);
+                    const wkContainer = document.getElementById(`works-${per.id}`);
+                    
+                    if (evContainer) {
+                        new Sortable(evContainer, {
+                            animation: 150, handle: '.drag-item',
+                            onEnd: function (evt) {
+                                let perRef = timelines.find(t => t.id === tl.id).periods.find(p => p.id === per.id);
+                                const movedItem = perRef.events.splice(evt.oldIndex, 1)[0];
+                                perRef.events.splice(evt.newIndex, 0, movedItem);
+                                saveOnlyData();
+                            }
+                        });
+                    }
+                    if (wkContainer) {
+                        new Sortable(wkContainer, {
+                            animation: 150, handle: '.drag-item',
+                            onEnd: function (evt) {
+                                let perRef = timelines.find(t => t.id === tl.id).periods.find(p => p.id === per.id);
+                                const movedItem = perRef.works.splice(evt.oldIndex, 1)[0];
+                                perRef.works.splice(evt.newIndex, 0, movedItem);
+                                saveOnlyData();
+                            }
+                        });
+                    }
+                });
+            }
+        });
+    }
 
     // --- FUNÇÕES PRINCIPAIS DE RENDERIZAÇÃO ---
     function render() {
         const container = document.getElementById('app-container');
-        container.innerHTML = ''; // Limpa tudo
+        container.innerHTML = ''; 
 
         timelines.forEach(tl => {
             let col = document.createElement('div');
             col.className = 'column-wrapper';
             
-            // Header da Coluna
             col.innerHTML = `
                 <div class="column-header">
                     <h2 class="column-title">${tl.title}</h2>
-                    <div>
+                    <div style="display: flex; align-items: center;">
                         <button class="btn-add" onclick="openModal('period', '${tl.id}')">+ Período</button>
-                        <button class="btn-delete" title="Excluir Coluna" onclick="deleteItem('timeline', '${tl.id}')">🗑️</button>
+                        <button class="btn-action btn-edit" title="Editar Nome da Coluna" onclick="openModal('timeline', '${tl.id}', null, null, true)">✏️</button>
+                        <button class="btn-action btn-delete" title="Excluir Coluna" onclick="deleteItem('timeline', '${tl.id}')">✕</button>
+                        <button class="btn-action btn-drag drag-column" title="Mover Coluna">⋮⋮</button>
                     </div>
                 </div>
                 <div class="periods-container" id="periods-${tl.id}"></div>
@@ -355,7 +482,6 @@
 
             const periodsContainer = col.querySelector(`#periods-${tl.id}`);
 
-            // Renderizar Períodos
             tl.periods.forEach(per => {
                 let pBlock = document.createElement('div');
                 pBlock.className = 'period-block';
@@ -366,7 +492,11 @@
                             <span class="period-date">${per.date}</span>
                             <svg class="icon-arrow" width="16" height="16" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
                         </div>
-                        <button class="btn-delete" style="color:white" onclick="deleteItem('period', '${tl.id}', '${per.id}')">🗑️</button>
+                        <div style="display:flex; align-items: center;">
+                            <button class="btn-action btn-edit" title="Editar Período" onclick="openModal('period', '${tl.id}', '${per.id}', null, true)">✏️</button>
+                            <button class="btn-action btn-delete" title="Excluir Período" onclick="deleteItem('period', '${tl.id}', '${per.id}')">✕</button>
+                            <button class="btn-action btn-drag drag-period" title="Mover Período">⋮⋮</button>
+                        </div>
                     </div>
                     <div class="accordion-wrapper">
                         <div class="accordion-content">
@@ -394,15 +524,16 @@
                 `;
                 periodsContainer.appendChild(pBlock);
 
-                // Renderizar Eventos
                 const evContainer = pBlock.querySelector(`#events-${per.id}`);
                 per.events.forEach(ev => { evContainer.appendChild(createItemHTML(ev, tl.id, per.id, 'event')); });
 
-                // Renderizar Obras
                 const wkContainer = pBlock.querySelector(`#works-${per.id}`);
                 per.works.forEach(wk => { wkContainer.appendChild(createItemHTML(wk, tl.id, per.id, 'work')); });
             });
         });
+
+        // Só inicializa o drag and drop depois que todo o HTML for injetado na tela
+        setTimeout(initSortables, 50); 
     }
 
     function createItemHTML(item, tlId, perId, type) {
@@ -415,7 +546,11 @@
                     <span class="event-date-badge">${item.date}</span>
                     ${item.desc ? '<svg class="icon-arrow" width="14" height="14" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>' : ''}
                 </div>
-                <button class="btn-delete" onclick="deleteItem('${type}', '${tlId}', '${perId}', '${item.id}')">🗑️</button>
+                <div style="display: flex; align-items: center;">
+                    <button class="btn-action btn-edit" title="Editar" onclick="openModal('${type}', '${tlId}', '${perId}', '${item.id}', true)">✏️</button>
+                    <button class="btn-action btn-delete" title="Excluir" onclick="deleteItem('${type}', '${tlId}', '${perId}', '${item.id}')">✕</button>
+                    <button class="btn-action btn-drag drag-item" title="Mover Item">⋮⋮</button>
+                </div>
             </div>
             ${item.desc ? `
             <div class="accordion-wrapper">
@@ -432,7 +567,11 @@
     }
 
     // --- FUNÇÕES DE CRUD E MODAL ---
-    function saveData() {
+    function saveOnlyData() {
+        localStorage.setItem('antiqTimelineData', JSON.stringify(timelines));
+    }
+
+    function saveDataAndRender() {
         localStorage.setItem('antiqTimelineData', JSON.stringify(timelines));
         render();
     }
@@ -455,32 +594,47 @@
             if (type === 'event') per.events = per.events.filter(e => e.id !== itemId);
             if (type === 'work') per.works = per.works.filter(w => w.id !== itemId);
         }
-        saveData();
+        saveDataAndRender();
     }
 
-    function openModal(type, tlId = null, perId = null) {
-        currentModalContext = { type, tlId, perId };
+    function openModal(type, tlId = null, perId = null, itemId = null, isEdit = false) {
+        currentModalContext = { type, tlId, perId, itemId, isEdit };
         
-        // Reseta os campos
-        document.getElementById('input-title').value = '';
-        document.getElementById('input-date').value = '';
-        document.getElementById('input-desc').value = '';
-        document.getElementById('input-color').value = '#1d4ed8';
+        let titleVal = ''; let dateVal = ''; let descVal = ''; let colorVal = '#1d4ed8';
 
-        // Configura a visibilidade dos campos dependendo do que está sendo criado
+        if (isEdit) {
+            if (type === 'timeline') {
+                let tl = timelines.find(t => t.id === tlId); titleVal = tl.title;
+            } else if (type === 'period') {
+                let tl = timelines.find(t => t.id === tlId); let per = tl.periods.find(p => p.id === perId);
+                titleVal = per.title; dateVal = per.date; descVal = per.desc; colorVal = per.color;
+            } else if (type === 'event' || type === 'work') {
+                let tl = timelines.find(t => t.id === tlId); let per = tl.periods.find(p => p.id === perId);
+                let item = type === 'event' ? per.events.find(e => e.id === itemId) : per.works.find(w => w.id === itemId);
+                titleVal = item.name; dateVal = item.date; descVal = item.desc;
+            }
+        }
+
+        document.getElementById('input-title').value = titleVal;
+        document.getElementById('input-date').value = dateVal;
+        document.getElementById('input-desc').value = descVal;
+        document.getElementById('input-color').value = colorVal;
+
         document.getElementById('group-date').style.display = type === 'timeline' ? 'none' : 'block';
         document.getElementById('group-desc').style.display = type === 'timeline' ? 'none' : 'block';
         document.getElementById('group-color').style.display = type === 'period' ? 'block' : 'none';
 
-        let titles = { 'timeline': 'Nova Coluna', 'period': 'Novo Período', 'event': 'Novo Evento', 'work': 'Nova Obra/Texto' };
+        let titles = { 
+            'timeline': isEdit ? 'Editar Coluna' : 'Nova Coluna', 
+            'period': isEdit ? 'Editar Período' : 'Novo Período', 
+            'event': isEdit ? 'Editar Evento' : 'Novo Evento', 
+            'work': isEdit ? 'Editar Obra/Texto' : 'Nova Obra/Texto' 
+        };
         document.getElementById('modal-title').innerText = titles[type];
-
         document.getElementById('modal').classList.add('active');
     }
 
-    function closeModal() {
-        document.getElementById('modal').classList.remove('active');
-    }
+    function closeModal() { document.getElementById('modal').classList.remove('active'); }
 
     function saveItem() {
         let title = document.getElementById('input-title').value.trim();
@@ -490,26 +644,33 @@
 
         if (!title) return alert('O título/nome é obrigatório!');
 
-        let { type, tlId, perId } = currentModalContext;
+        let { type, tlId, perId, itemId, isEdit } = currentModalContext;
 
-        if (type === 'timeline') {
-            timelines.push({ id: generateId(), title: title, periods: [] });
-        } else if (type === 'period') {
-            let tl = timelines.find(t => t.id === tlId);
-            tl.periods.push({ id: generateId(), title, date, desc, color, events: [], works: [] });
-        } else if (type === 'event' || type === 'work') {
-            let per = timelines.find(t => t.id === tlId).periods.find(p => p.id === perId);
-            let newItem = { id: generateId(), name: title, date, desc };
-            if (type === 'event') per.events.push(newItem);
-            else per.works.push(newItem);
+        if (isEdit) {
+            if (type === 'timeline') { timelines.find(t => t.id === tlId).title = title; } 
+            else if (type === 'period') {
+                let per = timelines.find(t => t.id === tlId).periods.find(p => p.id === perId);
+                per.title = title; per.date = date; per.desc = desc; per.color = color;
+            } else if (type === 'event' || type === 'work') {
+                let item = type === 'event' ? timelines.find(t => t.id === tlId).periods.find(p => p.id === perId).events.find(e => e.id === itemId) : timelines.find(t => t.id === tlId).periods.find(p => p.id === perId).works.find(w => w.id === itemId);
+                item.name = title; item.date = date; item.desc = desc;
+            }
+        } else {
+            if (type === 'timeline') { timelines.push({ id: generateId(), title: title, periods: [] }); } 
+            else if (type === 'period') { timelines.find(t => t.id === tlId).periods.push({ id: generateId(), title, date, desc, color, events: [], works: [] }); } 
+            else if (type === 'event' || type === 'work') {
+                let newItem = { id: generateId(), name: title, date, desc };
+                if (type === 'event') timelines.find(t => t.id === tlId).periods.find(p => p.id === perId).events.push(newItem);
+                else timelines.find(t => t.id === tlId).periods.find(p => p.id === perId).works.push(newItem);
+            }
         }
-
-        closeModal();
-        saveData();
+        closeModal(); saveDataAndRender();
     }
 
-    // Iniciar
-    render();
+    // Garante que o script só inicie depois que o navegador carregar o HTML todo
+    document.addEventListener("DOMContentLoaded", function() {
+        render();
+    });
 </script>
 
 </body>
