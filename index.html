@@ -6,7 +6,6 @@
     <title>Linha do Tempo Crítica da Antiguidade</title>
     
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
@@ -41,7 +40,6 @@
             margin: 0 auto;
         }
 
-        /* --- BARRA DE AUTENTICAÇÃO / MULTI-USUÁRIO --- */
         .auth-bar {
             display: flex;
             justify-content: space-between;
@@ -118,7 +116,6 @@
             font-size: 1.1rem;
         }
 
-        /* LAYOUT PRINCIPAL DINÂMICO */
         .main-layout {
             display: flex;
             gap: 40px;
@@ -126,7 +123,6 @@
             position: relative;
         }
 
-        /* COLUNA DI (Barra Lateral Fixa Branca Transparente) */
         .fixed-sidebar {
             background: rgba(255, 255, 255, 0.06);
             border: 1px solid rgba(255, 255, 255, 0.12);
@@ -193,7 +189,6 @@
             padding-bottom: 0;
         }
 
-        /* GRID DAS LINHAS DO TEMPO */
         .timeline-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -267,7 +262,6 @@
         .btn-drag:hover { color: #ffffff; border-color: #ffffff; background: rgba(255, 255, 255, 0.1); }
         .btn-drag:active { cursor: grabbing; }
 
-        /* Blocos de Período */
         .period-block {
             margin-bottom: 20px;
             border-radius: 6px;
@@ -350,7 +344,6 @@
         .period-block.open .period-header-click .icon-arrow { transform: rotate(180deg); }
         .event-item.open .icon-arrow { transform: rotate(180deg); }
 
-        /* Modais */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.6); 
@@ -372,8 +365,19 @@
         }
         .input-group textarea { min-height: 100px; resize: vertical; }
         .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
-        .btn-save { background: var(--action-color); color: #fff; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
+        .btn-save { background: var(--action-color); color: #fff; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; transition: background 0.2s; }
         .btn-cancel { background: transparent; color: #fff; border: 1px solid var(--border-color); padding: 10px 20px; border-radius: 4px; cursor: pointer; }
+
+        /* Alerta de Exclusão */
+        .delete-alert-box {
+            padding: 12px;
+            color: #f87171;
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 6px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
 
         @media (max-width: 1150px) { 
             .main-layout { flex-direction: column; }
@@ -431,37 +435,41 @@
 <div class="modal-overlay" id="modal">
     <div class="modal-content">
         <h3 id="modal-title">Adicionar Item</h3>
-        <div class="input-group" id="group-title">
-            <label id="label-title">Título / Nome</label>
-            <input type="text" id="input-title">
+        
+        <div id="modal-delete-warning" style="display: none; margin-bottom: 20px;"></div>
+
+        <div id="modal-fields-wrapper">
+            <div class="input-group" id="group-title">
+                <label id="label-title">Título / Nome</label>
+                <input type="text" id="input-title">
+            </div>
+            <div class="input-group" id="group-date" style="display:none;">
+                <label>Data / Período</label>
+                <input type="text" id="input-date">
+            </div>
+            <div class="input-group" id="group-color" style="display:none;">
+                <label>Cor de Fundo do Bloco</label>
+                <input type="color" id="input-color" value="#1d4ed8">
+            </div>
+            <div class="input-group" id="group-desc" style="display:none;">
+                <label>Texto Descritivo / Análise Crítica</label>
+                <textarea id="input-desc"></textarea>
+            </div>
         </div>
-        <div class="input-group" id="group-date" style="display:none;">
-            <label>Data / Período</label>
-            <input type="text" id="input-date">
-        </div>
-        <div class="input-group" id="group-color" style="display:none;">
-            <label>Cor de Fundo do Bloco</label>
-            <input type="color" id="input-color" value="#1d4ed8">
-        </div>
-        <div class="input-group" id="group-desc" style="display:none;">
-            <label>Texto Descritivo / Análise Crítica</label>
-            <textarea id="input-desc"></textarea>
-        </div>
+
         <div class="modal-actions">
             <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
-            <button class="btn-save" onclick="saveItem()">Salvar</button>
+            <button class="btn-save" id="btn-modal-submit" onclick="saveItem()">Salvar</button>
         </div>
     </div>
 </div>
 
 <script>
-    // --- CONFIGURAÇÃO DAS CREDENCIAIS DO SUPABASE ---
     const SUPABASE_URL = "https://xucuaqvqqrsdqlmqhinb.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1Y3VhcXZxcXJzZHFsbXFoaW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExMDg1NDcsImV4cCI6MjA5NjY4NDU0N30.M29g8rdpYzRwLl4N5fx0HbBaqY5Frqe4eS2hUEO93XU";
     
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // --- ESTADO DA APLICAÇÃO ---
     let timelines = [];
     let fixedSidebarData = { id: 'fixed', title: 'Descobertas e Invenções', items: [] };
     let isCollapsedDI = false;
@@ -470,13 +478,10 @@
     let currentModalContext = {};
     let authMode = 'login';
     
-    // Rastreador de memória para manter os accordions abertos durante atualizações realtime
     let openAccordionsRegistry = new Set();
 
-    // --- SEU ID ÚNICO DE ADMINISTRADOR ---
     const ADMIN_UUID = "1f8fafcb-ac79-479a-a1f3-3bf63c9ad62d";
 
-    // --- VERIFICAÇÃO DE SESSÃO ---
     async function checkUserSession() {
         const { data: { session } } = await supabaseClient.auth.getSession();
         
@@ -510,9 +515,7 @@
         setupRealtimeSubscription();
     }
 
-    // --- CARREGAMENTO DO BANCO DE DADOS RELACIONAL ---
     async function loadData(targetId = null) {
-        // Preserva quais blocos o usuário expandiu antes do re-render
         document.querySelectorAll('.period-block.open, .event-item.open').forEach(el => {
             if (el.id) openAccordionsRegistry.add(el.id);
         });
@@ -653,11 +656,9 @@
         const container = document.getElementById('app-container');
         container.innerHTML = '';
 
-        // Se o banco estiver vazio, exibe o aviso, mas NÃO usa o "return" para travar o script
         if (timelines.length === 0) {
             container.innerHTML = `<p style="color:var(--text-muted); padding: 20px;">Nenhuma linha do tempo encontrada aqui. Clique em Entrar ou criar conta para começar.</p>`;
         } else {
-            // Desenha as colunas normalmente se houver dados no banco
             timelines.forEach(tl => {
                 const canEditThisTimeline = determineEditable(tl.user_id);
                 let col = document.createElement('div');
@@ -670,7 +671,7 @@
                             ${canEditThisTimeline ? `
                                 <button class="btn-add" onclick="openModal('period', '${tl.id}')">+ Período</button>
                                 <button class="btn-action btn-edit" onclick="openModal('timeline', '${tl.id}', null, null, true)">✏️</button>
-                                <button class="btn-action btn-delete" onclick="deleteItem('timeline', '${tl.id}')">✕</button>
+                                <button class="btn-action btn-delete" onclick="openModal('timeline', '${tl.id}', null, null, false, true)">✕</button>
                                 <button class="btn-action btn-drag drag-column">⋮⋮</button>
                             ` : ''}
                         </div>
@@ -685,7 +686,6 @@
                         let pBlock = document.createElement('div');
                         pBlock.id = `block_${per.id}`;
                         
-                        // Restaura o estado aberto/fechado se estivesse na memória
                         pBlock.className = openAccordionsRegistry.has(pBlock.id) ? 'period-block open' : 'period-block';
                         
                         pBlock.innerHTML = `
@@ -698,7 +698,7 @@
                                 <div class="period-actions">
                                     ${canEditThisTimeline ? `
                                         <button class="btn-action btn-edit" onclick="openModal('period', '${tl.id}', '${per.id}', null, true)">✏️</button>
-                                        <button class="btn-action btn-delete" onclick="deleteItem('period', '${tl.id}', '${per.id}')">✕</button>
+                                        <button class="btn-action btn-delete" onclick="openModal('period', '${tl.id}', '${per.id}', null, false, true)">✕</button>
                                         <button class="btn-action btn-drag drag-period">⋮⋮</button>
                                     ` : ''}
                                 </div>
@@ -739,7 +739,6 @@
             });
         }
         
-        // Mantido fora do bloco condicional para que a inicialização ocorra sempre
         openAccordionsRegistry.clear();
         setTimeout(initSortables, 50);
     }
@@ -758,7 +757,7 @@
                 <div class="item-actions">
                     ${canEdit ? `
                         <button class="btn-action btn-edit" onclick="openModal('${type}', '${tlId}', '${perId}', '${item.id}', true)">✏️</button>
-                        <button class="btn-action btn-delete" onclick="deleteItem('${type}', '${tlId}', '${perId}', '${item.id}')">✕</button>
+                        <button class="btn-action btn-delete" onclick="openModal('${type}', '${tlId}', '${perId}', '${item.id}', false, true)">✕</button>
                         <button class="btn-action btn-drag drag-item">⋮⋮</button>
                     ` : ''}
                 </div>
@@ -774,7 +773,6 @@
     function toggleAccordion(element) { element.classList.toggle('open'); }
     function toggleDI() { isCollapsedDI = !isCollapsedDI; renderSidebarContent(); }
 
-    // --- SISTEMA DE AUTENTICAÇÃO ---
     function openAuthModal(mode) {
         authMode = mode;
         document.getElementById('auth-modal-title').innerText = mode === 'login' ? 'Entrar no Sistema' : 'Criar Conta Convidado';
@@ -808,70 +806,139 @@
         window.location.reload();
     }
 
-    // --- ESCRITA E MODIFICAÇÃO DE DADOS ---
-   function openModal(type, tlId = null, perId = null, itemId = null, isEdit = false) {
-            currentModalContext = { type, tlId, perId, itemId, isEdit };
+    function openModal(type, tlId = null, perId = null, itemId = null, isEdit = false, isDelete = false) {
+        currentModalContext = { type, tlId, perId, itemId, isEdit, isDelete };
 
-            // 1. Limpa os campos por padrão para o caso de um novo cadastro
-            document.getElementById('input-title').value = '';
-            document.getElementById('input-date').value = '';
-            document.getElementById('input-desc').value = '';
+        document.getElementById('input-title').value = '';
+        document.getElementById('input-date').value = '';
+        document.getElementById('input-desc').value = '';
 
-            // 2. Controla o título do Modal e a exibição visual dos campos corretos
-            const modalTitleEl = document.getElementById('modal-title');
-            let prefixoAcao = isEdit ? "Editar" : "Adicionar";
+        const modalTitleEl = document.getElementById('modal-title');
+        const submitBtn = document.getElementById('btn-modal-submit');
+        const deleteWarningEl = document.getElementById('modal-delete-warning');
+        const fieldsWrapper = document.getElementById('modal-fields-wrapper');
 
-            if (type === 'timeline') modalTitleEl.innerText = `${prefixoAcao} Linha do Tempo`;
-            if (type === 'period') modalTitleEl.innerText = `${prefixoAcao} Período`;
-            if (type === 'event') modalTitleEl.innerText = `${prefixoAcao} Evento`;
-            if (type === 'work') modalTitleEl.innerText = `${prefixoAcao} Obra / Texto`;
+        // Reseta o estado estético padrão do botão e visibilidade dos campos
+        if (submitBtn) {
+            submitBtn.style.backgroundColor = 'var(--action-color)';
+            submitBtn.innerText = 'Salvar';
+        }
+        deleteWarningEl.style.display = 'none';
+        deleteWarningEl.innerHTML = '';
+        fieldsWrapper.style.display = 'block';
 
-            document.getElementById('group-date').style.display = type === 'timeline' ? 'none' : 'block';
-            document.getElementById('group-desc').style.display = type === 'timeline' ? 'none' : 'block';
-            document.getElementById('group-color').style.display = type === 'period' ? 'block' : 'none';
+        document.getElementById('group-date').style.display = type === 'timeline' ? 'none' : 'block';
+        document.getElementById('group-desc').style.display = type === 'timeline' ? 'none' : 'block';
+        document.getElementById('group-color').style.display = type === 'period' ? 'block' : 'none';
 
-            // 3. SE FOR EDIÇÃO: Recupera os dados existentes na memória para preencher os inputs automaticamente
-            if (isEdit) {
-                if (type === 'timeline') {
-                    const tl = timelines.find(t => t.id === tlId);
-                    if (tl) document.getElementById('input-title').value = tl.title || '';
-                } else if (type === 'period') {
-                    const tl = timelines.find(t => t.id === tlId);
-                    const per = tl?.periods?.find(p => p.id === perId);
-                    if (per) {
-                        document.getElementById('input-title').value = per.title || '';
-                        document.getElementById('input-date').value = per.date_str || '';
-                        document.getElementById('input-desc').value = per.description || '';
-                        if (per.color) document.getElementById('input-color').value = per.color;
-                    }
-                } else if (type === 'event' || type === 'work') {
-                    const tl = timelines.find(t => t.id === tlId);
-                    const per = tl?.periods?.find(p => p.id === perId);
-                    const listaAlvo = type === 'event' ? per?.events : per?.works;
-                    const item = listaAlvo?.find(i => i.id === itemId);
-                    
-                    if (item) {
-                        document.getElementById('input-title').value = item.name || '';
-                        document.getElementById('input-date').value = item.date_str || '';
-                        document.getElementById('input-desc').value = item.description || '';
-                    }
-                }
+        // FLUXO DE EXCLUSÃO CUSTOMIZADA E PADRONIZADA
+        if (isDelete) {
+            modalTitleEl.innerText = `Confirmar Exclusão`;
+            fieldsWrapper.style.display = 'none'; // Esconde os inputs normais de preenchimento
+
+            let identificadorNome = "este registro";
+            if (type === 'timeline') {
+                const tl = timelines.find(t => t.id === tlId);
+                identificadorNome = `a Linha do Tempo "${tl?.title || ''}" e TODOS os seus sub-períodos, eventos e análises vinculadas`;
+            } else if (type === 'period') {
+                const tl = timelines.find(t => t.id === tlId);
+                const per = tl?.periods?.find(p => p.id === perId);
+                identificadorNome = `o Período "${per?.title || ''}" e todas as suas obras e eventos acoplados`;
+            } else if (type === 'discovery_item') {
+                const item = fixedSidebarData.items.find(i => i.id === itemId);
+                identificadorNome = `a descoberta fixa "${item?.name || ''}"`;
+            } else {
+                const tl = timelines.find(t => t.id === tlId);
+                const per = tl?.periods?.find(p => p.id === perId);
+                const lista = type === 'event' ? per?.events : per?.works;
+                const item = lista?.find(i => i.id === itemId);
+                identificadorNome = `o item "${item?.name || ''}"`;
             }
 
-            // 4. Ativa a exibição visual do modal na tela
+            deleteWarningEl.innerHTML = `
+                <div class="delete-alert-box">
+                    ⚠️ <strong>Atenção Absoluta:</strong> Tem certeza que deseja eliminar de forma permanente <strong>${identificadorNome}</strong>? Esta ação executará uma limpeza direta nas tabelas do banco de dados e não poderá ser desfeita.
+                </div>
+            `;
+            deleteWarningEl.style.display = 'block';
+
+            if (submitBtn) {
+                submitBtn.style.backgroundColor = 'var(--danger-color)';
+                submitBtn.innerText = 'Excluir Definitivamente';
+            }
+            
             document.getElementById('modal').classList.add('active');
+            return; 
         }
+
+        // FLUXO DE EDIÇÃO OU ADIÇÃO DE ITENS
+        let prefixoAcao = isEdit ? "Editar" : "Adicionar";
+        if (type === 'timeline') modalTitleEl.innerText = `${prefixoAcao} Linha do Tempo`;
+        if (type === 'period') modalTitleEl.innerText = `${prefixoAcao} Período`;
+        if (type === 'event') modalTitleEl.innerText = `${prefixoAcao} Evento`;
+        if (type === 'work') modalTitleEl.innerText = `${prefixoAcao} Obra / Texto`;
+        if (type === 'discovery_item') modalTitleEl.innerText = `${prefixoAcao} Item Fixo`;
+
+        if (isEdit) {
+            if (type === 'timeline') {
+                const tl = timelines.find(t => t.id === tlId);
+                if (tl) document.getElementById('input-title').value = tl.title || '';
+            } else if (type === 'period') {
+                const tl = timelines.find(t => t.id === tlId);
+                const per = tl?.periods?.find(p => p.id === perId);
+                if (per) {
+                    document.getElementById('input-title').value = per.title || '';
+                    document.getElementById('input-date').value = per.date_str || '';
+                    document.getElementById('input-desc').value = per.description || '';
+                    if (per.color) document.getElementById('input-color').value = per.color;
+                }
+            } else if (type === 'event' || type === 'work') {
+                const tl = timelines.find(t => t.id === tlId);
+                const per = tl?.periods?.find(p => p.id === perId);
+                const listaAlvo = type === 'event' ? per?.events : per?.works;
+                const item = listaAlvo?.find(i => i.id === itemId);
+                
+                if (item) {
+                    document.getElementById('input-title').value = item.name || '';
+                    document.getElementById('input-date').value = item.date_str || '';
+                    document.getElementById('input-desc').value = item.description || '';
+                }
+            } else if (type === 'discovery_item') {
+                const item = fixedSidebarData.items.find(i => i.id === itemId);
+                if (item) {
+                    document.getElementById('input-title').value = item.name || '';
+                    document.getElementById('input-date').value = item.date_str || '';
+                    document.getElementById('input-desc').value = item.description || '';
+                }
+            }
+        }
+
+        document.getElementById('modal').classList.add('active');
+    }
     
     function closeModal() { document.getElementById('modal').classList.remove('active'); }
 
     async function saveItem() {
+        let { type, tlId, perId, itemId, isEdit, isDelete } = currentModalContext;
+        if (!currentUser) return alert("Você precisa estar logado para executar alterações.");
+
+        // INTERCEPTADOR EXCLUSIVO DA CAIXA DE EXCLUSÃO PERSONALIZADA
+        if (isDelete) {
+            if (type === 'timeline') await supabaseClient.from('timelines').delete().eq('id', tlId);
+            else if (type === 'period') await supabaseClient.from('periods').delete().eq('id', perId);
+            else if (type === 'event' || type === 'work') await supabaseClient.from('items').delete().eq('id', itemId);
+            else if (type === 'discovery_item') await supabaseClient.from('fixed_discoveries').delete().eq('id', itemId);
+
+            closeModal();
+            const urlParams = new URLSearchParams(window.location.search);
+            await loadData(urlParams.get('id'));
+            return;
+        }
+
         const title = document.getElementById('input-title').value.trim();
         const date = document.getElementById('input-date').value.trim();
         const desc = document.getElementById('input-desc').value.trim();
         const color = document.getElementById('input-color').value;
-
-        let { type, tlId, perId, itemId, isEdit } = currentModalContext;
-        if (!currentUser) return alert("Você precisa estar logado para salvar dados.");
 
         if (type === 'timeline') {
             if (isEdit) await supabaseClient.from('timelines').update({ title }).eq('id', tlId);
@@ -892,23 +959,9 @@
         await loadData(urlParams.get('id'));
     }
 
-    async function deleteItem(type, tlId, perId = null, itemId = null) {
-        if (!confirm("Tem certeza de que deseja excluir permanentemente este registro?")) return;
-        
-        if (type === 'timeline') await supabaseClient.from('timelines').delete().eq('id', tlId);
-        if (type === 'period') await supabaseClient.from('periods').delete().eq('id', perId);
-        if (type === 'event' || type === 'work') await supabaseClient.from('items').delete().eq('id', itemId);
-        if (type === 'discovery_item') await supabaseClient.from('fixed_discoveries').delete().eq('id', itemId);
-
-        const urlParams = new URLSearchParams(window.location.search);
-        await loadData(urlParams.get('id'));
-    }
-
-    // --- ENGENHARIA DE ARRASTAR E PERSISTIR EM LOTE ---
     function initSortables() {
         if (!currentUser) return;
 
-        // 1. Reordenação de Colunas Principais (Timelines)
         const gridContainer = document.getElementById('app-container');
         if (gridContainer && timelines.length > 0) {
             new Sortable(gridContainer, {
@@ -923,7 +976,6 @@
             });
         }
 
-        // 2. Reordenação de Períodos dentro de cada coluna
         timelines.forEach(tl => {
             const pContainer = document.getElementById(`periods-${tl.id}`);
             if (pContainer && tl.periods) {
@@ -938,7 +990,6 @@
                     }
                 });
 
-                // 3. Reordenação de sub-itens (Eventos e Obras) respeitando a ordem
                 tl.periods.forEach(per => {
                     ['events', 'works'].forEach(subType => {
                         const idSelector = subType === 'events' ? `events-${per.id}` : `works-${per.id}`;
@@ -961,7 +1012,6 @@
             }
         });
 
-        // 4. Reordenação direta na coluna DI
         const discoveriesContainer = document.getElementById('disc-container-fixed');
         if (discoveriesContainer && fixedSidebarData.items.length > 0) {
             new Sortable(discoveriesContainer, {
