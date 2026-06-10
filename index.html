@@ -575,7 +575,7 @@
             tl.periods = pData || [];
             
             for (let per of tl.periods) {
-                const { data: iData } = await supabaseClient.from('items').select('*').eq('period_id', per.id).order('position');
+                const { data: iData = [] } = await supabaseClient.from('items').select('*').eq('period_id', per.id).order('position');
                 per.events = iData ? iData.filter(i => i.type === 'event') : [];
                 per.works = iData ? iData.filter(i => i.type === 'work') : [];
             }
@@ -952,7 +952,7 @@
     
     function closeModal() { document.getElementById('modal').classList.remove('active'); }
 
-    // --- FUNÇÃO EXCLUSIVA DE FORMATAÇÃO DE TEXTO SELECIONADO ---
+    // --- FUNÇÃO EXCLUSIVA DE FORMATAÇÃO COM TOGGLE (LIGAR/DESLIGAR INVISÍVEL) ---
     function formatSelectedText(styleType) {
         const textarea = document.getElementById('input-desc');
         if (!textarea) return;
@@ -961,25 +961,47 @@
         const endPos = textarea.selectionEnd;
         const textOriginal = textarea.value;
 
-        // Captura o trecho que o usuário selecionou com o mouse
-        const textSelected = textOriginal.substring(startPos, endPos);
-
-        // Define as tags correspondentes ao estilo desejado
         const tagOpen = styleType === 'bold' ? '<strong>' : '<em>';
-        const tagClose = styleType === 'bold' ? '</strong>' : 'em>';
+        const tagClose = styleType === 'bold' ? '</strong>' : '</em>';
 
-        // Reconstrói o texto inserindo as tags cirurgicamente apenas nas bordas da seleção
+        // Trecho selecionado com o mouse
+        let textSelected = textOriginal.substring(startPos, endPos);
+
+        // CHECAGEM DE SEGURANÇA 1: O usuário selecionou a palavra JÁ com as tags incluídas por dentro?
+        if (textSelected.startsWith(tagOpen) && textSelected.endsWith(tagClose)) {
+            // Remove as tags e limpa o bloco
+            const textLimpo = textSelected.substring(tagOpen.length, textSelected.length - tagClose.length);
+            textarea.value = textOriginal.substring(0, startPos) + textLimpo + textOriginal.substring(endPos);
+            textarea.focus();
+            textarea.setSelectionRange(startPos, startPos + textLimpo.length);
+            return;
+        }
+
+        // CHECAGEM DE SEGURANÇA 2: As tags estão por FORA da seleção atual do cursor?
+        const antesSelection = textOriginal.substring(startPos - tagOpen.length, startPos);
+        const depoisSelection = textOriginal.substring(endPos, endPos + tagClose.length);
+
+        if (antesSelection === tagOpen && depoisSelection === tagClose) {
+            // Remove as tags que estão cercando as bordas externas da seleção
+            textarea.value = textOriginal.substring(0, startPos - tagOpen.length) + textSelected + textOriginal.substring(endPos + tagClose.length);
+            textarea.focus();
+            textarea.setSelectionRange(startPos - tagOpen.length, startPos - tagOpen.length + textSelected.length);
+            return;
+        }
+
+        // CASO PADRÃO: Se não há marcação prévia, envelopa cirurgicamente o termo selecionado
         const textModificado = 
             textOriginal.substring(0, startPos) + 
             tagOpen + textSelected + tagClose + 
             textOriginal.substring(endPos);
 
         textarea.value = textModificado;
-
-        // Reposiciona o cursor e foca novamente na caixa de texto para não perder o fluxo
         textarea.focus();
-        const novoCursorPos = startPos + tagOpen.length + textSelected.length + tagClose.length;
-        textarea.setSelectionRange(novoCursorPos, novoCursorPos);
+        
+        // Reposiciona a seleção exatamente sobre a palavra interna, mantendo o foco limpo e sem tags aparentes
+        const novoStart = startPos + tagOpen.length;
+        const novoEnd = novoStart + textSelected.length;
+        textarea.setSelectionRange(novoStart, novoEnd);
     }
 
     async function saveItem() {
