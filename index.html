@@ -105,7 +105,7 @@
 
         /* Novos Botões de Ação com contorno */
         .btn-action {
-            background: transparent;
+            background: rgba(0, 0, 0, 0.3); /* Fundo escuro semi-transparente para dar contraste */
             border-radius: 6px;
             width: 32px;
             height: 32px;
@@ -119,23 +119,23 @@
         }
 
         .btn-edit {
-            color: var(--text-muted);
-            border: 1px solid var(--border-color);
+            color: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
         .btn-edit:hover {
             color: #ffffff;
             border-color: #ffffff;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.2);
         }
 
         .btn-delete {
-            color: var(--danger-color);
-            border: 1px solid var(--danger-color);
-            font-weight: bold;
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.4);
         }
         .btn-delete:hover {
-            background: rgba(239, 68, 68, 0.15);
-            box-shadow: 0 0 8px rgba(239, 68, 68, 0.3); /* Brilho vermelho sutil igual à imagem */
+            background: rgba(239, 68, 68, 0.25);
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); 
+            border-color: #ef4444;
         }
 
         /* Blocos de Período */
@@ -287,71 +287,84 @@
 </div>
 
 <script>
-    // --- DADOS INICIAIS (Se não houver nada salvo no LocalStorage) ---
+    // --- DADOS INICIAIS ---
     const defaultData = [
         {
             id: 't_grecia', title: 'Grécia',
             periods: [
                 {
                     id: 'p_trevas', title: 'Idade das Trevas Grega', date: 'c. 1100 a.C. — 800 a.C.', color: '#1e293b',
-                    desc: 'Período marcado pelo colapso da civilização micênica. Longe de ser apenas um "vazio", foi o caldeirão silencioso onde a tradição oral gestou a base mítica ocidental, operando à margem de instituições centralizadoras de poder.',
+                    desc: 'Período marcado pelo colapso da civilização micênica.',
                     events: [], works: []
-                },
-                {
-                    id: 'p_arcaico', title: 'Período Arcaico Grego', date: 'c. 800 a.C. — 480 a.C.', color: '#b45309',
-                    desc: 'Nascimento das Polis (cidades-estado). Aqui, os mitos deixam de ser apenas narrativas rituais e passam a ser fixados em obras que tentam organizar a estrutura cósmica e a hierarquia do poder.',
-                    events: [
-                        { id: 'e_olimp', name: 'Primeiros Jogos Olímpicos', date: '776 a.C.', desc: 'Unificou culturalmente os povos gregos, transformando a violência guerreira em espetáculo ritualizado sob a chancelaba do poder.' }
-                    ],
-                    works: [
-                        { id: 'w_homero', name: 'Ilíada e Odisseia (Homero)', date: 'c. 750 a.C.', desc: 'Sob o verniz das batalhas, esconde-se a primeira anatomia da fragilidade humana frente às narrativas e forças institucionais.' },
-                        { id: 'w_hesiodo', name: 'Teogonia (Hesíodo)', date: 'c. 700 a.C.', desc: 'Sistematiza o poder de Zeus. Registro seminal do Mito de Prometeu: a eterna tensão entre autonomia técnica humana e punição arbitrária do Estado/Deuses.' }
-                    ]
-                },
-                {
-                    id: 'p_classico', title: 'Período Clássico Grego', date: '480 a.C. — 323 a.C.', color: '#1d4ed8',
-                    desc: 'O auge filosófico e político de Atenas. Sob a razão e democracia, floresce o imperialismo. Berço das obras que rasgaram o discurso oficial e mergulharam na falha da percepção humana.',
-                    events: [
-                        { id: 'e_pericles', name: 'Governo de Péricles', date: '461 — 429 a.C.', desc: 'Apogeu de Atenas que alimentou a arrogância institucional e cimentou o poder através do monopólio da narrativa.' },
-                        { id: 'e_socrates', name: 'Condenação de Sócrates', date: '399 a.C.', desc: 'A instituição elimina fisicamente o elemento que forçava a desconstrução das ilusões sociais da massa.' }
-                    ],
-                    works: [
-                        { id: 'w_edipo', name: 'Édipo Rei (Sófocles)', date: '429 a.C.', desc: 'A anatomia da cegueira psíquica. O sujeito descobre que suas certezas conscientes são fraudes e que ele é operado por forças ocultas.' },
-                        { id: 'w_republica', name: 'A República (Platão)', date: '375 a.C.', desc: 'Contém a Alegoria da Caverna: o trauma de descobrir que a realidade compartilhada é apenas uma narrativa fabricada por quem detém o poder de projetar as sombras.' }
-                    ]
-                }
-            ]
-        },
-        {
-            id: 't_roma', title: 'Roma',
-            periods: [
-                {
-                    id: 'p_republica', title: 'República Romana', date: '509 a.C. — 27 a.C.', color: '#991b1b',
-                    desc: 'Estabelecimento de um complexo sistema de freios institucionais gerido pelo Senado. Colapsou quando o poder militar se descolou do discurso legal.',
-                    events: [
-                        { id: 'e_cesar', name: 'Assassinato de Júlio César', date: '44 a.C.', desc: 'O colapso da velha narrativa republicana. O assassinato precipita a substituição da burocracia por um poder pessoal incontestável.' }
-                    ], works: []
-                },
-                {
-                    id: 'p_imperio', title: 'Império Romano', date: '27 a.C. — 476 d.C.', color: '#b45309',
-                    desc: 'Centralização total. A transição da Antiguidade para o alvorecer da Idade Média: o controle passa de vigilância física para vigilância psicológica interna.',
-                    events: [
-                        { id: 'e_augusto', name: 'Ascensão de Augusto', date: '27 a.C. — 14 d.C.', desc: 'A invenção da "Pax Romana": uma narrativa cosmética criada para anestesiar o esvaziamento político das antigas instituições livres.' }
-                    ],
-                    works: [
-                        { id: 'w_meditacoes', name: 'Meditações (Marco Aurélio)', date: 'c. 161 — 180 d.C.', desc: 'A busca desesperada por manter o tribunal interno intacto diante do ruído incessante do poder político.' },
-                        { id: 'w_agostinho', name: 'Confissões (Agostinho de Hipona)', date: '397 d.C.', desc: 'A invenção da neurose ocidental. Agostinho internaliza o olhar do poder: a transgressão deixa de ser apenas cívica para se tornar uma mancha inata no sujeito.' }
-                    ]
                 }
             ]
         }
     ];
 
-    // --- ESTADO DA APLICAÇÃO ---
+    // Carrega os seus dados salvos ou o padrão
     let timelines = JSON.parse(localStorage.getItem('antiqTimelineData')) || defaultData;
     let currentModalContext = {}; 
 
-    // --- FUNÇÕES PRINCIPAIS DE RENDERIZAÇÃO ---
+    // --- FUNÇÕES DE ARRASTAR E SOLTAR (SortableJS) ---
+    function initSortables() {
+        // Arrastar Colunas
+        const container = document.getElementById('app-container');
+        new Sortable(container, {
+            animation: 150,
+            handle: '.drag-column',
+            onEnd: function (evt) {
+                const movedItem = timelines.splice(evt.oldIndex, 1)[0];
+                timelines.splice(evt.newIndex, 0, movedItem);
+                saveOnlyData();
+            }
+        });
+
+        // Arrastar Períodos e Itens
+        timelines.forEach(tl => {
+            const periodsContainer = document.getElementById(`periods-${tl.id}`);
+            if (periodsContainer) {
+                new Sortable(periodsContainer, {
+                    animation: 150,
+                    handle: '.drag-period',
+                    onEnd: function (evt) {
+                        let tlRef = timelines.find(t => t.id === tl.id);
+                        const movedItem = tlRef.periods.splice(evt.oldIndex, 1)[0];
+                        tlRef.periods.splice(evt.newIndex, 0, movedItem);
+                        saveOnlyData();
+                    }
+                });
+
+                tl.periods.forEach(per => {
+                    const evContainer = document.getElementById(`events-${per.id}`);
+                    const wkContainer = document.getElementById(`works-${per.id}`);
+                    
+                    if (evContainer) {
+                        new Sortable(evContainer, {
+                            animation: 150, handle: '.drag-item',
+                            onEnd: function (evt) {
+                                let perRef = timelines.find(t => t.id === tl.id).periods.find(p => p.id === per.id);
+                                const movedItem = perRef.events.splice(evt.oldIndex, 1)[0];
+                                perRef.events.splice(evt.newIndex, 0, movedItem);
+                                saveOnlyData();
+                            }
+                        });
+                    }
+                    if (wkContainer) {
+                        new Sortable(wkContainer, {
+                            animation: 150, handle: '.drag-item',
+                            onEnd: function (evt) {
+                                let perRef = timelines.find(t => t.id === tl.id).periods.find(p => p.id === per.id);
+                                const movedItem = perRef.works.splice(evt.oldIndex, 1)[0];
+                                perRef.works.splice(evt.newIndex, 0, movedItem);
+                                saveOnlyData();
+                            }
+                        });
+                    }
+                });
+            }
+        });
+    }
+
     // --- FUNÇÕES PRINCIPAIS DE RENDERIZAÇÃO ---
     function render() {
         const container = document.getElementById('app-container');
@@ -391,7 +404,7 @@
                             <svg class="icon-arrow" width="16" height="16" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
                         </div>
                         <div style="display:flex; align-items: center;">
-                            <button class="btn-action btn-edit" style="border-color: rgba(255,255,255,0.3); color: white;" title="Editar Período" onclick="openModal('period', '${tl.id}', '${per.id}', null, true)">✏️</button>
+                            <button class="btn-action btn-edit" title="Editar Período" onclick="openModal('period', '${tl.id}', '${per.id}', null, true)">✏️</button>
                             <button class="btn-action btn-delete" title="Excluir Período" onclick="deleteItem('period', '${tl.id}', '${per.id}')">✕</button>
                         </div>
                     </div>
@@ -429,7 +442,7 @@
             });
         });
 
-        // Inicializa o drag and drop logo após desenhar tudo na tela
+        // Inicializa o drag and drop!
         initSortables();
     }
 
@@ -464,7 +477,11 @@
     }
 
     // --- FUNÇÕES DE CRUD E MODAL ---
-    function saveData() {
+    function saveOnlyData() {
+        localStorage.setItem('antiqTimelineData', JSON.stringify(timelines));
+    }
+
+    function saveDataAndRender() {
         localStorage.setItem('antiqTimelineData', JSON.stringify(timelines));
         render();
     }
@@ -487,36 +504,24 @@
             if (type === 'event') per.events = per.events.filter(e => e.id !== itemId);
             if (type === 'work') per.works = per.works.filter(w => w.id !== itemId);
         }
-        saveData();
+        saveDataAndRender();
     }
 
     function openModal(type, tlId = null, perId = null, itemId = null, isEdit = false) {
         currentModalContext = { type, tlId, perId, itemId, isEdit };
         
-        let titleVal = '';
-        let dateVal = '';
-        let descVal = '';
-        let colorVal = '#1d4ed8';
+        let titleVal = ''; let dateVal = ''; let descVal = ''; let colorVal = '#1d4ed8';
 
-        // Se for edição, recupera os dados existentes para preencher os campos do formulário
         if (isEdit) {
             if (type === 'timeline') {
-                let tl = timelines.find(t => t.id === tlId);
-                titleVal = tl.title;
+                let tl = timelines.find(t => t.id === tlId); titleVal = tl.title;
             } else if (type === 'period') {
-                let tl = timelines.find(t => t.id === tlId);
-                let per = tl.periods.find(p => p.id === perId);
-                titleVal = per.title;
-                dateVal = per.date;
-                descVal = per.desc;
-                colorVal = per.color;
+                let tl = timelines.find(t => t.id === tlId); let per = tl.periods.find(p => p.id === perId);
+                titleVal = per.title; dateVal = per.date; descVal = per.desc; colorVal = per.color;
             } else if (type === 'event' || type === 'work') {
-                let tl = timelines.find(t => t.id === tlId);
-                let per = tl.periods.find(p => p.id === perId);
+                let tl = timelines.find(t => t.id === tlId); let per = tl.periods.find(p => p.id === perId);
                 let item = type === 'event' ? per.events.find(e => e.id === itemId) : per.works.find(w => w.id === itemId);
-                titleVal = item.name;
-                dateVal = item.date;
-                descVal = item.desc;
+                titleVal = item.name; dateVal = item.date; descVal = item.desc;
             }
         }
 
@@ -525,7 +530,6 @@
         document.getElementById('input-desc').value = descVal;
         document.getElementById('input-color').value = colorVal;
 
-        // Ajusta exibição dos campos baseando-se no tipo de bloco
         document.getElementById('group-date').style.display = type === 'timeline' ? 'none' : 'block';
         document.getElementById('group-desc').style.display = type === 'timeline' ? 'none' : 'block';
         document.getElementById('group-color').style.display = type === 'period' ? 'block' : 'none';
@@ -537,13 +541,10 @@
             'work': isEdit ? 'Editar Obra/Texto' : 'Nova Obra/Texto' 
         };
         document.getElementById('modal-title').innerText = titles[type];
-
         document.getElementById('modal').classList.add('active');
     }
 
-    function closeModal() {
-        document.getElementById('modal').classList.remove('active');
-    }
+    function closeModal() { document.getElementById('modal').classList.remove('active'); }
 
     function saveItem() {
         let title = document.getElementById('input-title').value.trim();
@@ -556,41 +557,24 @@
         let { type, tlId, perId, itemId, isEdit } = currentModalContext;
 
         if (isEdit) {
-            // Caminho de modificação (Salvar edições)
-            if (type === 'timeline') {
-                let tl = timelines.find(t => t.id === tlId);
-                tl.title = title;
-            } else if (type === 'period') {
-                let tl = timelines.find(t => t.id === tlId);
-                let per = tl.periods.find(p => p.id === perId);
-                per.title = title;
-                per.date = date;
-                per.desc = desc;
-                per.color = color;
-            } else if (type === 'event' || type === 'work') {
+            if (type === 'timeline') { timelines.find(t => t.id === tlId).title = title; } 
+            else if (type === 'period') {
                 let per = timelines.find(t => t.id === tlId).periods.find(p => p.id === perId);
-                let item = type === 'event' ? per.events.find(e => e.id === itemId) : per.works.find(w => w.id === itemId);
-                item.name = title;
-                item.date = date;
-                item.desc = desc;
+                per.title = title; per.date = date; per.desc = desc; per.color = color;
+            } else if (type === 'event' || type === 'work') {
+                let item = type === 'event' ? timelines.find(t => t.id === tlId).periods.find(p => p.id === perId).events.find(e => e.id === itemId) : timelines.find(t => t.id === tlId).periods.find(p => p.id === perId).works.find(w => w.id === itemId);
+                item.name = title; item.date = date; item.desc = desc;
             }
         } else {
-            // Caminho de criação (Adicionar novos)
-            if (type === 'timeline') {
-                timelines.push({ id: generateId(), title: title, periods: [] });
-            } else if (type === 'period') {
-                let tl = timelines.find(t => t.id === tlId);
-                tl.periods.push({ id: generateId(), title, date, desc, color, events: [], works: [] });
-            } else if (type === 'event' || type === 'work') {
-                let per = timelines.find(t => t.id === tlId).periods.find(p => p.id === perId);
+            if (type === 'timeline') { timelines.push({ id: generateId(), title: title, periods: [] }); } 
+            else if (type === 'period') { timelines.find(t => t.id === tlId).periods.push({ id: generateId(), title, date, desc, color, events: [], works: [] }); } 
+            else if (type === 'event' || type === 'work') {
                 let newItem = { id: generateId(), name: title, date, desc };
-                if (type === 'event') per.events.push(newItem);
-                else per.works.push(newItem);
+                if (type === 'event') timelines.find(t => t.id === tlId).periods.find(p => p.id === perId).events.push(newItem);
+                else timelines.find(t => t.id === tlId).periods.find(p => p.id === perId).works.push(newItem);
             }
         }
-
-        closeModal();
-        saveData();
+        closeModal(); saveDataAndRender();
     }
 
     // Iniciar
