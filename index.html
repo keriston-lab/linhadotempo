@@ -55,10 +55,10 @@
             font-size: 1.1rem;
         }
 
-        /* Layout Duas/Múltiplas Colunas */
+        /* Ajuste Crucial: Força exatamente 2 colunas simétricas por linha */
         .timeline-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            grid-template-columns: repeat(2, 1fr);
             gap: 40px;
             align-items: start;
         }
@@ -106,7 +106,7 @@
             font-size: 1rem;
         }
 
-        /* Novos Botões de Ação com contorno (Editar, Excluir, Arrastar) */
+        /* Botões de Ação com contorno (Editar, Excluir, Arrastar) */
         .btn-action {
             background: rgba(0, 0, 0, 0.3);
             border-radius: 6px;
@@ -226,10 +226,10 @@
         .period-block.open .period-header-click .icon-arrow { transform: rotate(180deg); }
         .event-item.open .icon-arrow { transform: rotate(180deg); }
 
-        /* Modal / Pop-up de Criação */
+        /* Modal Universal */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: transparent; 
+            background: rgba(0, 0, 0, 0.6); 
             display: flex; justify-content: center; align-items: center;
             z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
         }
@@ -255,7 +255,10 @@
         .btn-save { background: var(--action-color); color: #fff; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
         .btn-cancel { background: transparent; color: #fff; border: 1px solid var(--border-color); padding: 10px 20px; border-radius: 4px; cursor: pointer; }
 
-        @media (max-width: 900px) { .timeline-grid { grid-template-columns: 1fr; } }
+        /* Responsividade para telas de celulares e tablets verticais */
+        @media (max-width: 1024px) { 
+            .timeline-grid { grid-template-columns: 1fr; } 
+        }
         @media (max-width: 600px) { .split-content { grid-template-columns: 1fr; } }
     </style>
 </head>
@@ -305,7 +308,6 @@
 </div>
 
 <script>
-    // --- DADOS INICIAIS COMPLETOS (Recuperação de Segurança) ---
     const defaultData = [
         {
             id: 't_grecia', title: 'Grécia',
@@ -323,7 +325,7 @@
                     ],
                     works: [
                         { id: 'w_homero', name: 'Ilíada e Odisseia (Homero)', date: 'c. 750 a.C.', desc: 'Sob o verniz das batalhas, esconde-se a primeira anatomia da fragilidade humana frente às narrativas e forças institucionais.' },
-                        { id: 'w_hesiodo', name: 'Teogonia (Hesíodo)', date: 'c. 700 a.C.', desc: 'Sistematiza o poder de Zeus. Registro seminal do Mito de Prometeu: a eterna tensão entre autonomia técnica humana e punição arbitrária do Estado/Deuses.' }
+                        { id: 'w_hesiodo', name: 'Teogonia (Hesíodo)', date: 'c. 700 a.C.', desc: 'Sistematiza o power de Zeus. Registro seminal do Mito de Prometeu: a eterna tensão entre autonomia técnica humana e punição arbitrária do Estado/Deuses.' }
                     ]
                 },
                 {
@@ -346,7 +348,7 @@
                     desc: 'A Polis perde autonomia e os cidadãos integram impérios vastos. Diante da máquina opressora, surgem escolas radicais de rejeição ou adaptação ao Grande Outro.',
                     events: [
                         { id: 'e_alex', name: 'Alexandre, o Grande', date: '336 — 323 a.C.', desc: 'Unificação forçada e aniquilação das autonomias locais. A força bruta se torna o único lastro da realidade.' },
-                        { id: 'e_cinica', name: 'A Ruptura Cínica (Diógenes)', date: 'c. 323 a.C.', desc: 'A rejeição absoluta do sistema simbólico. Provando que a única imunidade contra a máquina institucional é cuspir nas expectativas que a sustentam.' }
+                        { id: 'e_cinica', name: 'A Ruptura Cínica (Diógenes)', date: 'c. 323 a.C.', desc: 'A rejection absoluta do sistema simbólico. Provando que a única imunidade contra a máquina institucional é cuspir nas expectativas que a sustentam.' }
                     ],
                     works: []
                 }
@@ -380,7 +382,6 @@
         }
     ];
 
-    // Trava de Segurança: Tenta carregar o localStorage. Se falhar ou estiver vazio, usa o defaultData.
     let timelines;
     try {
         const saved = localStorage.getItem('antiqTimelineData');
@@ -394,12 +395,8 @@
 
     let currentModalContext = {}; 
 
-    // --- FUNÇÕES DE ARRASTAR E SOLTAR (SortableJS) ---
     function initSortables() {
-        if (typeof Sortable === 'undefined') {
-            console.error("SortableJS não carregou. Verifique sua conexão ou extensões do navegador.");
-            return;
-        }
+        if (typeof Sortable === 'undefined') return;
 
         const container = document.getElementById('app-container');
         new Sortable(container, {
@@ -457,7 +454,6 @@
         });
     }
 
-    // --- FUNÇÕES PRINCIPAIS DE RENDERIZAÇÃO ---
     function render() {
         const container = document.getElementById('app-container');
         container.innerHTML = ''; 
@@ -532,7 +528,6 @@
             });
         });
 
-        // Só inicializa o drag and drop depois que todo o HTML for injetado na tela
         setTimeout(initSortables, 50); 
     }
 
@@ -566,7 +561,6 @@
         element.classList.toggle('open');
     }
 
-    // --- FUNÇÕES DE CRUD E MODAL ---
     function saveOnlyData() {
         localStorage.setItem('antiqTimelineData', JSON.stringify(timelines));
     }
@@ -667,7 +661,6 @@
         closeModal(); saveDataAndRender();
     }
 
-    // Garante que o script só inicie depois que o navegador carregar o HTML todo
     document.addEventListener("DOMContentLoaded", function() {
         render();
     });
