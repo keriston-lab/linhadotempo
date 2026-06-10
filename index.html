@@ -389,7 +389,7 @@
     
     <div class="auth-bar">
         <div class="user-info" id="auth-user-info">
-            <span>🌐 Modo de visualização pública (Offline/Local)</span>
+            <span>🌐 Visualizando como Público Geral</span>
         </div>
         <div class="auth-actions" id="auth-actions-area">
             <button class="btn-auth" onclick="openAuthModal('login')">Entrar</button>
@@ -455,57 +455,79 @@
 </div>
 
 <script>
-    // --- CONFIGURAÇÃO DAS CREDENCIAIS DO SUPABASE DE DECODIFICAÇÃO ---
+    // --- CONFIGURAÇÃO DAS CREDENCIAIS DO SUPABASE ---
     const SUPABASE_URL = "https://xucuaxvqqrsdqlmqhinb.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1Y3VhcXZxcXJzZHFsbXFoaW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExMDg1NDcsImV4cCI6MjA5NjY4NDU0N30.M29g8rdpYzRwLl4N5fx0HbBaqY5Frqe4eS2hUEO93XU";
     
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabase = supabaseJS.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // --- REPOSITÓRIOS LOCAIS DE BACKUP ---
-    let fixedSidebarData = { id: 't_fixed_discoveries', title: 'Descobertas e Invenções', items: [] };
+    // --- ESTADO DA APLICAÇÃO ---
     let timelines = [];
+    let fixedSidebarData = { id: 'fixed', title: 'Descobertas e Invenções', items: [] };
     let isCollapsedDI = false;
     let currentUser = null;
+    let currentUserRole = 'public';
     let currentModalContext = {};
     let authMode = 'login';
 
-    // --- VERIFICAÇÃO DE SESSÃO E OWNER ---
+    // --- ID DO ADMINISTRADOR (Substitua após criar sua conta) ---
+    const ADMIN_UUID = "INSIRA_AQUI_O_SEU_ID_APOS_SE_CADASTRAR";
+
+    // --- VERIFICAÇÃO DE SESSÃO ---
     async function checkUserSession() {
-        const { data { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await supabase.auth.getSession();
+        
         if (session) {
             currentUser = session.user;
+            currentUserRole = (currentUser.id === ADMIN_UUID) ? 'admin' : 'guest';
+            
             document.getElementById('auth-user-info').innerHTML = `
-                <span>✅ Conectado como: <strong>${currentUser.email}</strong></span>
-                <span class="user-badge">${currentUser.id === 'SEU_ID_UUID_ADMIN' ? 'Admin' : 'Convidado'}</span>
+                <span>✅ Conectado: <strong>${currentUser.email}</strong></span>
+                <span class="user-badge" style="background:${currentUserRole === 'admin' ? '#b91c1c' : '#1d4ed8'}; color:#fff;">
+                    ${currentUserRole === 'admin' ? 'Autor Principal' : 'Convidado'}
+                </span>
             `;
-            document.getElementById('auth-actions-area').innerHTML = `<button class="btn-auth" onclick="handleLogout()">Sair / Desconectar</button>`;
-            document.getElementById('btn-master-add').style.display = 'block';
+            document.getElementById('auth-actions-area').innerHTML = `<button class="btn-auth" onclick="handleLogout()">Sair</button>`;
+            if (currentUserRole === 'admin') {
+                document.getElementById('btn-master-add').style.display = 'block';
+            }
         } else {
             currentUser = null;
+            currentUserRole = 'public';
+            document.getElementById('auth-user-info').innerHTML = `<span>🌐 Visualizando como Público Geral</span>`;
+            document.getElementById('auth-actions-area').innerHTML = `
+                <button class="btn-auth" onclick="openAuthModal('login')">Entrar</button>
+                <button class="btn-auth" onclick="openAuthModal('register')">Criar Conta Convidado</button>
+            `;
+            document.getElementById('btn-master-add').style.display = 'none';
         }
-        await loadData();
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetTimelineId = urlParams.get('id');
+
+        await loadData(targetTimelineId);
+        setupRealtimeSubscription();
     }
 
-    // --- BANCO DE DADOS: CARREGAR DADOS ---
-    async function loadData() {
-        if (!currentUser) {
-            // Se deslogado, tenta ler do localStorage para não quebrar a visualização local
-            const localTl = localStorage.getItem('antiqTimelineData');
-            const localDI = localStorage.getItem('antiqFixedSidebarData');
-            timelines = localTl ? JSON.parse(localTl) : [];
-            fixedSidebarData = localDI ? JSON.parse(localDI) : { id: 't_fixed_discoveries', title: 'Descobertas e Invenções', items: [] };
-            render();
-            return;
+    // --- CARREGAMENTO DO BANCO DE DADOS RELACIONAL ---
+    async function loadData(targetId = null) {
+        let query = supabase.from('timelines').select('*');
+        
+        if (targetId) {
+            query = query.eq('id', targetId);
+        } else if (currentUser) {
+            query = query.eq('user_id', currentUser.id);
+        } else {
+            query = query.eq('is_public', true);
         }
 
-        // Se logado, puxa direto das tabelas relacionais do Supabase
-        const { data: tlData } = await supabase.from('timelines').select('*').order('position');
+        const { data: tlData } = await query.order('position');
         timelines = tlData || [];
 
-        // Preenche recursivamente os períodos e sub-itens de cada linha do tempo
         for (let tl of timelines) {
             const { data: pData } = await supabase.from('periods').select('*').eq('timeline_id', tl.id).order('position');
             tl.periods = pData || [];
+            
             for (let per of tl.periods) {
                 const { data: iData } = await supabase.from('items').select('*').eq('period_id', per.id).order('position');
                 per.events = iData ? iData.filter(i => i.type === 'event') : [];
@@ -515,23 +537,87 @@
 
         const { data: diData } = await supabase.from('fixed_discoveries').select('*').order('position');
         fixedSidebarData.items = diData || [];
+
         render();
+        renderCloneButtonIfNeeded(targetId);
     }
 
-    // --- SALVAMENTO SINCRO (Suporta tanto Supabase quanto LocalStorage se offline) ---
-    async function saveOnlyData() {
-        if (!currentUser) {
-            localStorage.setItem('antiqTimelineData', JSON.stringify(timelines));
-            localStorage.setItem('antiqFixedSidebarData', JSON.stringify(fixedSidebarData));
-            return;
+    function renderCloneButtonIfNeeded(targetId) {
+        if (!targetId || timelines.length === 0) return;
+        const currentTimeline = timelines[0];
+        
+        if (!currentUser || currentUser.id !== currentTimeline.user_id) {
+            const actionsArea = document.getElementById('auth-actions-area');
+            // Evita duplicar botões se a função rodar múltiplas vezes
+            if (!document.getElementById('btn-clone-dynamic')) {
+                const cloneBtn = document.createElement('button');
+                cloneBtn.id = "btn-clone-dynamic";
+                cloneBtn.className = "btn-auth btn-clone";
+                cloneBtn.innerText = "🍃 Duplicar para o meu Painel";
+                cloneBtn.onclick = () => duplicateTimeline(currentTimeline.id);
+                actionsArea.prepend(cloneBtn);
+            }
         }
-        // Atualizações de posições pós arrastar e soltar (SortableJS) são persistidas aqui
     }
 
-    // --- SINALIZAÇÃO E RENDERIZAÇÃO DA INTERFACE ---
+    async function duplicateTimeline(timelineIdOrigem) {
+        if (!currentUser) {
+            alert("Você precisa criar uma conta ou fazer login para poder duplicar este modelo!");
+            return openAuthModal('login');
+        }
+
+        const { data: origTl } = await supabase.from('timelines').select('*').eq('id', timelineIdOrigem).single();
+        if (!origTl) return;
+
+        const { data: newTl, error: errTl } = await supabase.from('timelines')
+            .insert({ title: origTl.title + " (Cópia)", user_id: currentUser.id, is_public: false })
+            .select().single();
+
+        if (errTl) return alert("Erro ao duplicar estrutura.");
+
+        const { data: periods } = await supabase.from('periods').select('*').eq('timeline_id', timelineIdOrigem);
+        
+        for (let per of (periods || [])) {
+            const { data: newPer } = await supabase.from('periods')
+                .insert({ timeline_id: newTl.id, title: per.title, date_str: per.date_str, color: per.color, description: per.description })
+                .select().single();
+
+            const { data: items } = await supabase.from('items').select('*').eq('period_id', per.id);
+            if (items && items.length > 0) {
+                const itemsToInsert = items.map(i => ({
+                    period_id: newPer.id,
+                    type: i.type,
+                    name: i.name,
+                    date_str: i.date_str,
+                    description: i.description
+                }));
+                await supabase.from('items').insert(itemsToInsert);
+            }
+        }
+
+        alert("Linha do tempo clonada com sucesso! Redirecionando para o seu painel...");
+        window.location.href = window.location.pathname;
+    }
+
+    function setupRealtimeSubscription() {
+        supabase
+            .channel('any-db-changes')
+            .on('postgres_changes', { event: '*', schema: 'public' }, () => {
+                const urlParams = new URLSearchParams(window.location.search);
+                loadData(urlParams.get('id'));
+            })
+            .subscribe();
+    }
+
+    function determineEditable(tlOwnerId) {
+        if (!currentUser) return false;
+        if (currentUserRole === 'admin') return true;
+        return currentUser.id === tlOwnerId;
+    }
+
     function renderSidebarContent() {
         const sidebarContainer = document.getElementById('fixed-sidebar-container');
-        const canEdit = currentUser !== null;
+        const canEditDI = (currentUserRole === 'admin');
 
         if (isCollapsedDI) {
             sidebarContainer.classList.add('collapsed');
@@ -542,7 +628,7 @@
                 <div class="column-header">
                     <h2 class="column-title">${fixedSidebarData.title}</h2>
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        ${canEdit ? `<button class="btn-add" onclick="openModal('discovery_item', '${fixedSidebarData.id}')">+</button>` : ''}
+                        ${canEditDI ? `<button class="btn-add" onclick="openModal('discovery_item', '${fixedSidebarData.id}')">+</button>` : ''}
                         <button class="btn-toggle-di" onclick="toggleDI()">⇽</button>
                     </div>
                 </div>
@@ -552,7 +638,7 @@
             `;
             const discContainer = sidebarContainer.querySelector('#disc-container-fixed');
             fixedSidebarData.items.forEach(item => {
-                discContainer.appendChild(createItemHTML(item, fixedSidebarData.id, null, 'discovery_item', canEdit));
+                discContainer.appendChild(createItemHTML(item, fixedSidebarData.id, null, 'discovery_item', canEditDI));
             });
         }
     }
@@ -561,16 +647,21 @@
         renderSidebarContent();
         const container = document.getElementById('app-container');
         container.innerHTML = '';
-        const canEdit = currentUser !== null;
+
+        if (timelines.length === 0) {
+            container.innerHTML = `<p style="color:var(--text-muted); padding: 20px;">Nenhuma linha do tempo encontrada aqui.</p>`;
+            return;
+        }
 
         timelines.forEach(tl => {
+            const canEditThisTimeline = determineEditable(tl.user_id);
             let col = document.createElement('div');
             col.className = 'column-wrapper';
             col.innerHTML = `
                 <div class="column-header">
                     <h2 class="column-title">${tl.title}</h2>
                     <div style="display: flex; align-items: center;">
-                        ${canEdit ? `
+                        ${canEditThisTimeline ? `
                             <button class="btn-add" onclick="openModal('period', '${tl.id}')">+ Período</button>
                             <button class="btn-action btn-edit" onclick="openModal('timeline', '${tl.id}', null, null, true)">✏️</button>
                             <button class="btn-action btn-delete" onclick="deleteItem('timeline', '${tl.id}')">✕</button>
@@ -588,14 +679,14 @@
                     let pBlock = document.createElement('div');
                     pBlock.className = 'period-block';
                     pBlock.innerHTML = `
-                        <div class="period-header" style="background-color: ${per.color};">
+                        <div class="period-header" style="background-color: ${per.color || '#1e293b'};">
                             <div class="period-header-click" onclick="toggleAccordion(this.parentElement.parentElement)">
                                 <span class="period-title">${per.title}</span>
                                 <span class="period-date">${per.date_str || ''}</span>
                                 <svg class="icon-arrow" width="16" height="16" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
                             </div>
                             <div class="period-actions">
-                                ${canEdit ? `
+                                ${canEditThisTimeline ? `
                                     <button class="btn-action btn-edit" onclick="openModal('period', '${tl.id}', '${per.id}', null, true)">✏️</button>
                                     <button class="btn-action btn-delete" onclick="deleteItem('period', '${tl.id}', '${per.id}')">✕</button>
                                     <button class="btn-action btn-drag drag-period">⋮⋮</button>
@@ -610,14 +701,14 @@
                                         <div class="split-col">
                                             <div class="split-col-header">
                                                 <h4>EVENTOS</h4>
-                                                ${canEdit ? `<button class="btn-add" onclick="openModal('event', '${tl.id}', '${per.id}')">+ Add</button>` : ''}
+                                                ${canEditThisTimeline ? `<button class="btn-add" onclick="openModal('event', '${tl.id}', '${per.id}')">+ Add</button>` : ''}
                                             </div>
                                             <div id="events-${per.id}"></div>
                                         </div>
                                         <div class="split-col">
                                             <div class="split-col-header">
                                                 <h4>OBRAS / TEXTOS</h4>
-                                                ${canEdit ? `<button class="btn-add" onclick="openModal('work', '${tl.id}', '${per.id}')">+ Add</button>` : ''}
+                                                ${canEditThisTimeline ? `<button class="btn-add" onclick="openModal('work', '${tl.id}', '${per.id}')">+ Add</button>` : ''}
                                             </div>
                                             <div id="works-${per.id}"></div>
                                         </div>
@@ -629,10 +720,10 @@
                     periodsContainer.appendChild(pBlock);
 
                     const evContainer = pBlock.querySelector(`#events-${per.id}`);
-                    if (per.events) per.events.forEach(ev => { evContainer.appendChild(createItemHTML(ev, tl.id, per.id, 'event', canEdit)); });
+                    if (per.events) per.events.forEach(ev => { evContainer.appendChild(createItemHTML(ev, tl.id, per.id, 'event', canEditThisTimeline)); });
 
                     const wkContainer = pBlock.querySelector(`#works-${per.id}`);
-                    if (per.works) per.works.forEach(wk => { wkContainer.appendChild(createItemHTML(wk, tl.id, per.id, 'work', canEdit)); });
+                    if (per.works) per.works.forEach(wk => { wkContainer.appendChild(createItemHTML(wk, tl.id, per.id, 'work', canEditThisTimeline)); });
                 });
             }
         });
@@ -681,13 +772,18 @@
         const password = document.getElementById('auth-password').value;
 
         if (authMode === 'register') {
-            const { error } = await supabase.auth.signUp({ email, password, options: { data: { role: 'guest' } } });
+            const { data, error } = await supabase.auth.signUp({ 
+                email, 
+                password,
+                options: { data: { username: email.split('@')[0], role: 'guest' } }
+            });
             if (error) return alert(error.message);
-            alert("Cadastro efetuado! Verifique a caixa de confirmação no seu e-mail.");
+            alert("Cadastro realizado! O Supabase enviou um link de confirmação para o seu e-mail.");
+            closeAuthModal();
         } else {
             const { error } = await supabase.auth.signInWithPassword({ email, password });
             if (error) return alert(error.message);
-            closeAuthModal();
+            document.getElementById('modal-auth').classList.remove('active');
             window.location.reload();
         }
     }
@@ -697,14 +793,21 @@
         window.location.reload();
     }
 
-    // --- MODAL DE GRAVAÇÃO/EDIÇÃO DE DADOS ---
+    // --- ESCRITA E MODIFICAÇÃO DE DADOS ---
     function openModal(type, tlId = null, perId = null, itemId = null, isEdit = false) {
         currentModalContext = { type, tlId, perId, itemId, isEdit };
+        
+        document.getElementById('input-title').value = '';
+        document.getElementById('input-date').value = '';
+        document.getElementById('input-desc').value = '';
+
         document.getElementById('group-date').style.display = type === 'timeline' ? 'none' : 'block';
         document.getElementById('group-desc').style.display = type === 'timeline' ? 'none' : 'block';
         document.getElementById('group-color').style.display = type === 'period' ? 'block' : 'none';
+        
         document.getElementById('modal').classList.add('active');
     }
+    
     function closeModal() { document.getElementById('modal').classList.remove('active'); }
 
     async function saveItem() {
@@ -714,40 +817,56 @@
         const color = document.getElementById('input-color').value;
 
         let { type, tlId, perId, itemId, isEdit } = currentModalContext;
+        if (!currentUser) return alert("Você precisa estar logado para salvar dados.");
 
-        if (currentUser) {
-            // Operações de persistência direta no Supabase
-            if (type === 'timeline') {
-                if (isEdit) await supabase.from('timelines').update({ title }).eq('id', tlId);
-                else await supabase.from('timelines').insert({ title, user_id: currentUser.id });
-            } else if (type === 'period') {
-                if (isEdit) await supabase.from('periods').update({ title, date_str: date, description: desc, color }).eq('id', perId);
-                else await supabase.from('periods').insert({ timeline_id: tlId, title, date_str: date, description: desc, color });
-            } else if (type === 'event' || type === 'work') {
-                if (isEdit) await supabase.from('items').update({ name: title, date_str: date, description: desc }).eq('id', itemId);
-                else await supabase.from('items').insert({ period_id: perId, type, name: title, date_str: date, description: desc });
-            } else if (type === 'discovery_item') {
-                if (isEdit) await supabase.from('fixed_discoveries').update({ name: title, date_str: date, description: desc }).eq('id', itemId);
-                else await supabase.from('fixed_discoveries').insert({ name: title, date_str: date, description: desc, user_id: currentUser.id });
-            }
+        if (type === 'timeline') {
+            if (isEdit) await supabase.from('timelines').update({ title }).eq('id', tlId);
+            else await supabase.from('timelines').insert({ title, user_id: currentUser.id, is_public: true });
+        } else if (type === 'period') {
+            if (isEdit) await supabase.from('periods').update({ title, date_str: date, description: desc, color }).eq('id', perId);
+            else await supabase.from('periods').insert({ timeline_id: tlId, title, date_str: date, description: desc, color });
+        } else if (type === 'event' || type === 'work') {
+            if (isEdit) await supabase.from('items').update({ name: title, date_str: date, description: desc }).eq('id', itemId);
+            else await supabase.from('items').insert({ period_id: perId, type, name: title, date_str: date, description: desc });
+        } else if (type === 'discovery_item') {
+            if (isEdit) await supabase.from('fixed_discoveries').update({ name: title, date_str: date, description: desc }).eq('id', itemId);
+            else await supabase.from('fixed_discoveries').insert({ name: title, date_str: date, description: desc, user_id: currentUser.id });
         }
+
         closeModal();
-        await loadData();
+        const urlParams = new URLSearchParams(window.location.search);
+        await loadData(urlParams.get('id'));
     }
 
     async function deleteItem(type, tlId, perId = null, itemId = null) {
-        if (!confirm("Tem certeza que deseja deletar?")) return;
-        if (currentUser) {
-            if (type === 'timeline') await supabase.from('timelines').delete().eq('id', tlId);
-            if (type === 'period') await supabase.from('periods').delete().eq('id', perId);
-            if (type === 'event' || type === 'work') await supabase.from('items').delete().eq('id', itemId);
-            if (type === 'discovery_item') await supabase.from('fixed_discoveries').delete().eq('id', itemId);
-        }
-        await loadData();
+        if (!confirm("Tem certeza de que deseja excluir permanentemente este registro?")) return;
+        
+        if (type === 'timeline') await supabase.from('timelines').delete().eq('id', tlId);
+        if (type === 'period') await supabase.from('periods').delete().eq('id', perId);
+        if (type === 'event' || type === 'work') await supabase.from('items').delete().eq('id', itemId);
+        if (type === 'discovery_item') await supabase.from('fixed_discoveries').delete().eq('id', itemId);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        await loadData(urlParams.get('id'));
     }
 
     function initSortables() {
-        // Inicializador SortableJS preservado para o arrastar dinâmico
+        const container = document.getElementById('app-container');
+        if (!container || timelines.length === 0 || !currentUser) return;
+
+        new Sortable(container, {
+            animation: 150,
+            handle: '.drag-column',
+            onEnd: async function (evt) {
+                const movedItem = timelines.splice(evt.oldIndex, 1)[0];
+                timelines.splice(evt.newIndex, 0, movedItem);
+                
+                // Atualiza posições em lote de forma assíncrona no Supabase
+                for (let i = 0; i < timelines.length; i++) {
+                    await supabase.from('timelines').update({ position: i }).eq('id', timelines[i].id);
+                }
+            }
+        });
     }
 
     document.addEventListener("DOMContentLoaded", checkUserSession);
