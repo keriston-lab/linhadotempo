@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Linha do Tempo</title>
+    <title>Linha do Tempo Crítica da Antiguidade</title>
     
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     
@@ -193,7 +193,7 @@
             padding-bottom: 0;
         }
 
-        /* GRID DAS LINHAS DO TEMPO (Ocupa 100% da área restante livre) */
+        /* GRID DAS LINHAS DO TEMPO */
         .timeline-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -459,7 +459,7 @@
     const SUPABASE_URL = "https://xucuaxvqqrsdqlmqhinb.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1Y3VhcXZxcXJzZHFsbXFoaW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExMDg1NDcsImV4cCI6MjA5NjY4NDU0N30.M29g8rdpYzRwLl4N5fx0HbBaqY5Frqe4eS2hUEO93XU";
     
-    const supabase = supabaseJS.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // --- ESTADO DA APLICAÇÃO ---
     let timelines = [];
@@ -469,13 +469,16 @@
     let currentUserRole = 'public';
     let currentModalContext = {};
     let authMode = 'login';
+    
+    // Rastreador de memória para manter os accordions abertos durante atualizações realtime
+    let openAccordionsRegistry = new Set();
 
-    // --- ID DO ADMINISTRADOR (Substitua após criar sua conta) ---
+    // --- SEU ID ÚNICO DE ADMINISTRADOR ---
     const ADMIN_UUID = "INSIRA_AQUI_O_SEU_ID_APOS_SE_CADASTRAR";
 
     // --- VERIFICAÇÃO DE SESSÃO ---
     async function checkUserSession() {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await supabaseClient.auth.getSession();
         
         if (session) {
             currentUser = session.user;
@@ -503,15 +506,18 @@
         }
         
         const urlParams = new URLSearchParams(window.location.search);
-        const targetTimelineId = urlParams.get('id');
-
-        await loadData(targetTimelineId);
+        await loadData(urlParams.get('id'));
         setupRealtimeSubscription();
     }
 
     // --- CARREGAMENTO DO BANCO DE DADOS RELACIONAL ---
     async function loadData(targetId = null) {
-        let query = supabase.from('timelines').select('*');
+        // Preserva quais blocos o usuário expandiu antes do re-render
+        document.querySelectorAll('.period-block.open, .event-item.open').forEach(el => {
+            if (el.id) openAccordionsRegistry.add(el.id);
+        });
+
+        let query = supabaseClient.from('timelines').select('*');
         
         if (targetId) {
             query = query.eq('id', targetId);
@@ -525,17 +531,17 @@
         timelines = tlData || [];
 
         for (let tl of timelines) {
-            const { data: pData } = await supabase.from('periods').select('*').eq('timeline_id', tl.id).order('position');
+            const { data: pData } = await supabaseClient.from('periods').select('*').eq('timeline_id', tl.id).order('position');
             tl.periods = pData || [];
             
             for (let per of tl.periods) {
-                const { data: iData } = await supabase.from('items').select('*').eq('period_id', per.id).order('position');
+                const { data: iData } = await supabaseClient.from('items').select('*').eq('period_id', per.id).order('position');
                 per.events = iData ? iData.filter(i => i.type === 'event') : [];
                 per.works = iData ? iData.filter(i => i.type === 'work') : [];
             }
         }
 
-        const { data: diData } = await supabase.from('fixed_discoveries').select('*').order('position');
+        const { data: diData } = await supabaseClient.from('fixed_discoveries').select('*').order('position');
         fixedSidebarData.items = diData || [];
 
         render();
@@ -548,7 +554,6 @@
         
         if (!currentUser || currentUser.id !== currentTimeline.user_id) {
             const actionsArea = document.getElementById('auth-actions-area');
-            // Evita duplicar botões se a função rodar múltiplas vezes
             if (!document.getElementById('btn-clone-dynamic')) {
                 const cloneBtn = document.createElement('button');
                 cloneBtn.id = "btn-clone-dynamic";
@@ -566,23 +571,23 @@
             return openAuthModal('login');
         }
 
-        const { data: origTl } = await supabase.from('timelines').select('*').eq('id', timelineIdOrigem).single();
+        const { data: origTl } = await supabaseClient.from('timelines').select('*').eq('id', timelineIdOrigem).single();
         if (!origTl) return;
 
-        const { data: newTl, error: errTl } = await supabase.from('timelines')
+        const { data: newTl, error: errTl } = await supabaseClient.from('timelines')
             .insert({ title: origTl.title + " (Cópia)", user_id: currentUser.id, is_public: false })
             .select().single();
 
         if (errTl) return alert("Erro ao duplicar estrutura.");
 
-        const { data: periods } = await supabase.from('periods').select('*').eq('timeline_id', timelineIdOrigem);
+        const { data: periods } = await supabaseClient.from('periods').select('*').eq('timeline_id', timelineIdOrigem);
         
         for (let per of (periods || [])) {
-            const { data: newPer } = await supabase.from('periods')
+            const { data: newPer } = await supabaseClient.from('periods')
                 .insert({ timeline_id: newTl.id, title: per.title, date_str: per.date_str, color: per.color, description: per.description })
                 .select().single();
 
-            const { data: items } = await supabase.from('items').select('*').eq('period_id', per.id);
+            const { data: items } = await supabaseClient.from('items').select('*').eq('period_id', per.id);
             if (items && items.length > 0) {
                 const itemsToInsert = items.map(i => ({
                     period_id: newPer.id,
@@ -591,7 +596,7 @@
                     date_str: i.date_str,
                     description: i.description
                 }));
-                await supabase.from('items').insert(itemsToInsert);
+                await supabaseClient.from('items').insert(itemsToInsert);
             }
         }
 
@@ -600,7 +605,7 @@
     }
 
     function setupRealtimeSubscription() {
-        supabase
+        supabaseClient
             .channel('any-db-changes')
             .on('postgres_changes', { event: '*', schema: 'public' }, () => {
                 const urlParams = new URLSearchParams(window.location.search);
@@ -657,6 +662,7 @@
             const canEditThisTimeline = determineEditable(tl.user_id);
             let col = document.createElement('div');
             col.className = 'column-wrapper';
+            col.id = `tl_wrapper_${tl.id}`;
             col.innerHTML = `
                 <div class="column-header">
                     <h2 class="column-title">${tl.title}</h2>
@@ -677,7 +683,11 @@
             if (tl.periods) {
                 tl.periods.forEach(per => {
                     let pBlock = document.createElement('div');
-                    pBlock.className = 'period-block';
+                    pBlock.id = `block_${per.id}`;
+                    
+                    // Restaura estado aberto/fechado se estivesse na memória
+                    pBlock.className = openAccordionsRegistry.has(pBlock.id) ? 'period-block open' : 'period-block';
+                    
                     pBlock.innerHTML = `
                         <div class="period-header" style="background-color: ${per.color || '#1e293b'};">
                             <div class="period-header-click" onclick="toggleAccordion(this.parentElement.parentElement)">
@@ -703,14 +713,14 @@
                                                 <h4>EVENTOS</h4>
                                                 ${canEditThisTimeline ? `<button class="btn-add" onclick="openModal('event', '${tl.id}', '${per.id}')">+ Add</button>` : ''}
                                             </div>
-                                            <div id="events-${per.id}"></div>
+                                            <div id="events-${per.id}" class="items-sortable-list" data-period="${per.id}" data-type="event"></div>
                                         </div>
                                         <div class="split-col">
                                             <div class="split-col-header">
                                                 <h4>OBRAS / TEXTOS</h4>
                                                 ${canEditThisTimeline ? `<button class="btn-add" onclick="openModal('work', '${tl.id}', '${per.id}')">+ Add</button>` : ''}
                                             </div>
-                                            <div id="works-${per.id}"></div>
+                                            <div id="works-${per.id}" class="items-sortable-list" data-period="${per.id}" data-type="work"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -727,12 +737,16 @@
                 });
             }
         });
+        
+        // Limpa registro temporário após renderizar para o próximo ciclo
+        openAccordionsRegistry.clear();
         setTimeout(initSortables, 50);
     }
 
     function createItemHTML(item, tlId, perId, type, canEdit) {
         let div = document.createElement('div');
-        div.className = 'event-item';
+        div.id = `item_${item.id}`;
+        div.className = openAccordionsRegistry.has(div.id) ? 'event-item open' : 'event-item';
         div.innerHTML = `
             <div class="event-trigger-container">
                 <div class="event-trigger" onclick="toggleAccordion(this.parentElement.parentElement)">
@@ -772,16 +786,16 @@
         const password = document.getElementById('auth-password').value;
 
         if (authMode === 'register') {
-            const { data, error } = await supabase.auth.signUp({ 
+            const { data, error } = await supabaseClient.auth.signUp({ 
                 email, 
                 password,
                 options: { data: { username: email.split('@')[0], role: 'guest' } }
             });
             if (error) return alert(error.message);
-            alert("Cadastro realizado! O Supabase enviou um link de confirmação para o seu e-mail.");
+            alert("Cadastro realizado com sucesso! Para sua segurança, enviamos um link de confirmação para o seu e-mail. Ative-o antes de tentar entrar.");
             closeAuthModal();
         } else {
-            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
             if (error) return alert(error.message);
             document.getElementById('modal-auth').classList.remove('active');
             window.location.reload();
@@ -789,7 +803,7 @@
     }
 
     async function handleLogout() {
-        await supabase.auth.signOut();
+        await supabaseClient.auth.signOut();
         window.location.reload();
     }
 
@@ -820,17 +834,17 @@
         if (!currentUser) return alert("Você precisa estar logado para salvar dados.");
 
         if (type === 'timeline') {
-            if (isEdit) await supabase.from('timelines').update({ title }).eq('id', tlId);
-            else await supabase.from('timelines').insert({ title, user_id: currentUser.id, is_public: true });
+            if (isEdit) await supabaseClient.from('timelines').update({ title }).eq('id', tlId);
+            else await supabaseClient.from('timelines').insert({ title, user_id: currentUser.id, is_public: true });
         } else if (type === 'period') {
-            if (isEdit) await supabase.from('periods').update({ title, date_str: date, description: desc, color }).eq('id', perId);
-            else await supabase.from('periods').insert({ timeline_id: tlId, title, date_str: date, description: desc, color });
+            if (isEdit) await supabaseClient.from('periods').update({ title, date_str: date, description: desc, color }).eq('id', perId);
+            else await supabaseClient.from('periods').insert({ timeline_id: tlId, title, date_str: date, description: desc, color });
         } else if (type === 'event' || type === 'work') {
-            if (isEdit) await supabase.from('items').update({ name: title, date_str: date, description: desc }).eq('id', itemId);
-            else await supabase.from('items').insert({ period_id: perId, type, name: title, date_str: date, description: desc });
+            if (isEdit) await supabaseClient.from('items').update({ name: title, date_str: date, description: desc }).eq('id', itemId);
+            else await supabaseClient.from('items').insert({ period_id: perId, type, name: title, date_str: date, description: desc });
         } else if (type === 'discovery_item') {
-            if (isEdit) await supabase.from('fixed_discoveries').update({ name: title, date_str: date, description: desc }).eq('id', itemId);
-            else await supabase.from('fixed_discoveries').insert({ name: title, date_str: date, description: desc, user_id: currentUser.id });
+            if (isEdit) await supabaseClient.from('fixed_discoveries').update({ name: title, date_str: date, description: desc }).eq('id', itemId);
+            else await supabaseClient.from('fixed_discoveries').insert({ name: title, date_str: date, description: desc, user_id: currentUser.id });
         }
 
         closeModal();
@@ -841,32 +855,86 @@
     async function deleteItem(type, tlId, perId = null, itemId = null) {
         if (!confirm("Tem certeza de que deseja excluir permanentemente este registro?")) return;
         
-        if (type === 'timeline') await supabase.from('timelines').delete().eq('id', tlId);
-        if (type === 'period') await supabase.from('periods').delete().eq('id', perId);
-        if (type === 'event' || type === 'work') await supabase.from('items').delete().eq('id', itemId);
-        if (type === 'discovery_item') await supabase.from('fixed_discoveries').delete().eq('id', itemId);
+        if (type === 'timeline') await supabaseClient.from('timelines').delete().eq('id', tlId);
+        if (type === 'period') await supabaseClient.from('periods').delete().eq('id', perId);
+        if (type === 'event' || type === 'work') await supabaseClient.from('items').delete().eq('id', itemId);
+        if (type === 'discovery_item') await supabaseClient.from('fixed_discoveries').delete().eq('id', itemId);
 
         const urlParams = new URLSearchParams(window.location.search);
         await loadData(urlParams.get('id'));
     }
 
+    // --- ENGENHARIA DE ARRASTAR E PERSISTIR EM LOTE ---
     function initSortables() {
-        const container = document.getElementById('app-container');
-        if (!container || timelines.length === 0 || !currentUser) return;
+        if (!currentUser) return;
 
-        new Sortable(container, {
-            animation: 150,
-            handle: '.drag-column',
-            onEnd: async function (evt) {
-                const movedItem = timelines.splice(evt.oldIndex, 1)[0];
-                timelines.splice(evt.newIndex, 0, movedItem);
-                
-                // Atualiza posições em lote de forma assíncrona no Supabase
-                for (let i = 0; i < timelines.length; i++) {
-                    await supabase.from('timelines').update({ position: i }).eq('id', timelines[i].id);
+        // 1. Reordenação de Colunas Principais (Timelines)
+        const gridContainer = document.getElementById('app-container');
+        if (gridContainer && timelines.length > 0) {
+            new Sortable(gridContainer, {
+                animation: 150, handle: '.drag-column',
+                onEnd: async function (evt) {
+                    const moved = timelines.splice(evt.oldIndex, 1)[0];
+                    timelines.splice(evt.newIndex, 0, moved);
+                    for (let i = 0; i < timelines.length; i++) {
+                        await supabaseClient.from('timelines').update({ position: i }).eq('id', timelines[i].id);
+                    }
                 }
+            });
+        }
+
+        // 2. Reordenação de Períodos dentro de cada coluna
+        timelines.forEach(tl => {
+            const pContainer = document.getElementById(`periods-${tl.id}`);
+            if (pContainer && tl.periods) {
+                new Sortable(pContainer, {
+                    animation: 150, handle: '.drag-period',
+                    onEnd: async function (evt) {
+                        const moved = tl.periods.splice(evt.oldIndex, 1)[0];
+                        tl.periods.splice(evt.newIndex, 0, moved);
+                        for (let i = 0; i < tl.periods.length; i++) {
+                            await supabaseClient.from('periods').update({ position: i }).eq('id', tl.periods[i].id);
+                        }
+                    }
+                });
+
+                // 3. Reordenação de sub-itens (Eventos e Obras) respeitando a ordem
+                tl.periods.forEach(per => {
+                    ['events', 'works'].forEach(subType => {
+                        const idSelector = subType === 'events' ? `events-${per.id}` : `works-${per.id}`;
+                        const itemContainer = document.getElementById(idSelector);
+                        if (itemContainer) {
+                            new Sortable(itemContainer, {
+                                animation: 150, handle: '.drag-item',
+                                onEnd: async function (evt) {
+                                    const arrayRef = per[subType];
+                                    const moved = arrayRef.splice(evt.oldIndex, 1)[0];
+                                    arrayRef.splice(evt.newIndex, 0, moved);
+                                    for (let i = 0; i < arrayRef.length; i++) {
+                                        await supabaseClient.from('items').update({ position: i }).eq('id', arrayRef[i].id);
+                                    }
+                                }
+                            });
+                        }
+                    });
+                });
             }
         });
+
+        // 4. Reordenação direta na coluna DI
+        const discoveriesContainer = document.getElementById('disc-container-fixed');
+        if (discoveriesContainer && fixedSidebarData.items.length > 0) {
+            new Sortable(discoveriesContainer, {
+                animation: 150, handle: '.drag-item',
+                onEnd: async function (evt) {
+                    const moved = fixedSidebarData.items.splice(evt.oldIndex, 1)[0];
+                    fixedSidebarData.items.splice(evt.newIndex, 0, moved);
+                    for (let i = 0; i < fixedSidebarData.items.length; i++) {
+                        await supabaseClient.from('fixed_discoveries').update({ position: i }).eq('id', fixedSidebarData.items[i].id);
+                    }
+                }
+            });
+        }
     }
 
     document.addEventListener("DOMContentLoaded", checkUserSession);
