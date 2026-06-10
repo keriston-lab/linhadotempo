@@ -254,6 +254,13 @@
             position: relative;
         }
 
+        /* Botões de ação do período só visíveis no hover */
+        .period-header .period-actions {
+            display: flex; align-items: center;
+            opacity: 0; transition: opacity 0.15s;
+        }
+        .period-header:hover .period-actions { opacity: 1; }
+
         .period-header-click {
             flex-grow: 1;
             cursor: pointer;
@@ -292,6 +299,13 @@
         }
         .event-trigger-container:hover { background-color: rgba(255,255,255,0.05); }
         .fixed-sidebar .event-trigger-container:hover { background-color: rgba(255,255,255,0.1); }
+
+        /* Botões de ação só visíveis no hover */
+        .event-trigger-container .item-actions { 
+            display: flex; align-items: center;
+            opacity: 0; transition: opacity 0.15s;
+        }
+        .event-trigger-container:hover .item-actions { opacity: 1; }
 
         .event-trigger { flex-grow: 1; cursor: pointer; display: flex; align-items: center; flex-wrap: wrap; user-select: none; }
         .event-name { font-size: 0.9rem; font-weight: 500; }
@@ -337,6 +351,32 @@
         .btn-save { background: var(--action-color); color: #fff; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
         .btn-cancel { background: transparent; color: #fff; border: 1px solid var(--border-color); padding: 10px 20px; border-radius: 4px; cursor: pointer; }
 
+        /* Aviso de armazenamento local */
+        .storage-notice {
+            display: flex; align-items: center; justify-content: center; gap: 16px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            padding: 10px 20px;
+            margin-bottom: 30px;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            flex-wrap: wrap;
+        }
+        .btn-export {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--action-color);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .btn-export:hover { background: rgba(59, 130, 246, 0.2); }
+
         /* Responsividade */
         @media (max-width: 1150px) { 
             .main-layout { flex-direction: column; }
@@ -355,6 +395,11 @@
         <p>Uma investigação visual</p>
     </header>
 
+    <div class="storage-notice">
+        <span>💾 Dados salvos localmente no navegador — não aparecem em abas anônimas ou outros dispositivos.</span>
+        <button class="btn-export" onclick="exportData()">⬇ Exportar JSON</button>
+    </div>
+
     <div class="main-layout">
         
         <div class="fixed-sidebar" id="fixed-sidebar-container">
@@ -366,6 +411,19 @@
     </div>
 
     <button class="btn-add btn-add-timeline" onclick="openModal('timeline')">+ Adicionar Nova Linha do Tempo</button>
+</div>
+
+<!-- Modal de Confirmação -->
+<div class="modal-overlay" id="modal-confirm">
+    <div class="modal-content" style="max-width: 380px; text-align: center;">
+        <div style="font-size: 2rem; margin-bottom: 12px;">⚠️</div>
+        <h3 id="confirm-title" style="margin-bottom: 10px;">Confirmar exclusão</h3>
+        <p id="confirm-msg" style="color: var(--text-muted); margin-bottom: 24px; font-size: 0.95rem;">Esta ação não pode ser desfeita.</p>
+        <div class="modal-actions" style="justify-content: center;">
+            <button class="btn-cancel" onclick="closeConfirm()">Cancelar</button>
+            <button id="btn-confirm-ok" class="btn-save" style="background: var(--danger-color);">Excluir</button>
+        </div>
+    </div>
 </div>
 
 <div class="modal-overlay" id="modal">
@@ -655,7 +713,7 @@
                             <span class="period-date">${per.date}</span>
                             <svg class="icon-arrow" width="16" height="16" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
                         </div>
-                        <div style="display:flex; align-items: center;">
+                        <div class="period-actions">
                             <button class="btn-action btn-edit" title="Editar Período" onclick="openModal('period', '${tl.id}', '${per.id}', null, true)">✏️</button>
                             <button class="btn-action btn-delete" title="Excluir Período" onclick="deleteItem('period', '${tl.id}', '${per.id}')">✕</button>
                             <button class="btn-action btn-drag drag-period" title="Mover Período">⋮⋮</button>
@@ -708,12 +766,11 @@
                     <span class="event-date-badge">${item.date}</span>
                     ${item.desc ? '<svg class="icon-arrow" width="14" height="14" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>' : ''}
                 </div>
-                <div style="display: flex; align-items: center;">
+                <div class="item-actions">
                     <button class="btn-action btn-edit" title="Editar" onclick="openModal('${type}', '${tlId}', '${perId}', '${item.id}', true)">✏️</button>
                     <button class="btn-action btn-delete" title="Excluir" onclick="deleteItem('${type}', '${tlId}', '${perId}', '${item.id}')">✕</button>
                     <button class="btn-action btn-drag drag-item" title="Mover Item">⋮⋮</button>
-                </div>
-            </div>
+                </div>            </div>
             ${item.desc ? `
             <div class="accordion-wrapper">
                 <div class="accordion-content">
@@ -743,22 +800,29 @@
     }
 
     function deleteItem(type, tlId, perId = null, itemId = null) {
-        if (!confirm('Tem certeza que deseja excluir?')) return;
-
-        if (type === 'timeline') {
-            timelines = timelines.filter(t => t.id !== tlId);
-        } else if (type === 'discovery_item') {
-            fixedSidebarData.items = fixedSidebarData.items.filter(i => i.id !== itemId);
-        } else if (type === 'period') {
-            let tl = timelines.find(t => t.id === tlId);
-            tl.periods = tl.periods.filter(p => p.id !== perId);
-        } else if (type === 'event' || type === 'work') {
-            let tl = timelines.find(t => t.id === tlId);
-            let per = tl.periods.find(p => p.id === perId);
-            if (type === 'event') per.events = per.events.filter(e => e.id !== itemId);
-            if (type === 'work') per.works = per.works.filter(w => w.id !== itemId);
-        }
-        saveDataAndRender();
+        const labels = {
+            'timeline': 'Excluir esta coluna inteira e todos os seus períodos?',
+            'discovery_item': 'Excluir esta descoberta/invenção?',
+            'period': 'Excluir este período e todos os seus eventos e obras?',
+            'event': 'Excluir este evento?',
+            'work': 'Excluir esta obra/texto?'
+        };
+        openConfirm(labels[type] || 'Esta ação não pode ser desfeita.', function() {
+            if (type === 'timeline') {
+                timelines = timelines.filter(t => t.id !== tlId);
+            } else if (type === 'discovery_item') {
+                fixedSidebarData.items = fixedSidebarData.items.filter(i => i.id !== itemId);
+            } else if (type === 'period') {
+                let tl = timelines.find(t => t.id === tlId);
+                tl.periods = tl.periods.filter(p => p.id !== perId);
+            } else if (type === 'event' || type === 'work') {
+                let tl = timelines.find(t => t.id === tlId);
+                let per = tl.periods.find(p => p.id === perId);
+                if (type === 'event') per.events = per.events.filter(e => e.id !== itemId);
+                if (type === 'work') per.works = per.works.filter(w => w.id !== itemId);
+            }
+            saveDataAndRender();
+        });
     }
 
     function openModal(type, tlId = null, perId = null, itemId = null, isEdit = false) {
@@ -811,6 +875,35 @@
     }
 
     function closeModal() { document.getElementById('modal').classList.remove('active'); }
+
+    // --- MODAL DE CONFIRMAÇÃO ---
+    let pendingDeleteFn = null;
+    function openConfirm(message, onConfirm) {
+        document.getElementById('confirm-msg').innerText = message;
+        pendingDeleteFn = onConfirm;
+        document.getElementById('modal-confirm').classList.add('active');
+        document.getElementById('btn-confirm-ok').onclick = function() {
+            closeConfirm();
+            if (pendingDeleteFn) pendingDeleteFn();
+        };
+    }
+    function closeConfirm() { document.getElementById('modal-confirm').classList.remove('active'); pendingDeleteFn = null; }
+
+    // --- EXPORTAR DADOS ---
+    function exportData() {
+        const data = {
+            fixedSidebarData: fixedSidebarData,
+            timelines: timelines,
+            exportedAt: new Date().toISOString()
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'linha-do-tempo-backup.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
 
     function saveItem() {
         let title = document.getElementById('input-title').value.trim();
