@@ -212,7 +212,20 @@
             border-bottom: 1px solid var(--border-color);
             padding-bottom: 15px;
         }
+        
+/* Esconde as ações de gerenciamento da coluna por padrão */
+        .column-header .column-actions-wrapper {
+            opacity: 0;
+            transition: opacity 0.15s;
+            display: flex;
+            align-items: center;
+        }
 
+        /* Mostra as ações somente quando passar o mouse sobre o cabeçalho da coluna */
+        .column-wrapper:hover .column-actions-wrapper {
+            opacity: 1;
+        }
+        
         .column-title {
             font-size: 1.5rem;
             font-weight: 600;
@@ -731,9 +744,12 @@
                         <div style="display: flex; align-items: center;">
                             ${canEditThisTimeline ? `
                                 <button class="btn-add" onclick="openModal('period', '${tl.id}')">+ Período</button>
-                                <button class="btn-action btn-edit" onclick="openModal('timeline', '${tl.id}', null, null, true)">✏️</button>
-                                <button class="btn-action btn-delete" onclick="openModal('timeline', '${tl.id}', null, null, false, true)">✕</button>
-                                <button class="btn-action btn-drag drag-column">⋮⋮</button>
+                                
+                                <div class="column-actions-wrapper">
+                                    <button class="btn-action btn-edit" onclick="openModal('timeline', '${tl.id}', null, null, true)">✏️</button>
+                                    <button class="btn-action btn-delete" onclick="openModal('timeline', '${tl.id}', null, null, false, true)">✕</button>
+                                    <button class="btn-action btn-drag drag-column">⋮⋮</button>
+                                </div>
                             ` : ''}
                         </div>
                     </div>
